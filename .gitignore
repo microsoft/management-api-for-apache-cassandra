@@ -43,3 +43,6 @@ local.properties
 out/
 .idea_modules/
 .vscode/
+
+# Credentials
+*.key

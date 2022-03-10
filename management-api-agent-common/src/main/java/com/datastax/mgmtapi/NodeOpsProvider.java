@@ -33,6 +33,7 @@ import com.google.common.base.Suppliers;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import org.apache.cassandra.db.compaction.OperationType;
+import org.apache.cassandra.service.StorageProxy;
 import org.apache.cassandra.utils.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -417,6 +418,21 @@ public class NodeOpsProvider
         ShimLoader.instance.get().getRoleManager().createRole(AuthenticatedUser.SYSTEM_USER, rr, ro);
     }
 
+    @Rpc(name = "alterRole")
+    public void alterRole(@RpcParam(name="username") String username,
+            @RpcParam(name = "superuser") Boolean superUser,
+            @RpcParam(name = "login") Boolean login,
+            @RpcParam(name = "password") String password)
+    {
+        logger.debug("Altering role {}", username);
+        RoleResource rr = RoleResource.role(username);
+        RoleOptions ro = new RoleOptions();
+        ro.setOption(IRoleManager.Option.SUPERUSER, superUser);
+        ro.setOption(IRoleManager.Option.LOGIN, login);
+        ro.setOption(IRoleManager.Option.PASSWORD, password);
+
+        ShimLoader.instance.get().getRoleManager().alterRole(AuthenticatedUser.SYSTEM_USER, rr, ro);
+    }
     @Rpc(name = "checkConsistencyLevel")
     public Map<List<Long>, List<String>> checkConsistencyLevel(@RpcParam(name="consistency_level") String consistencyLevelName,
             @RpcParam(name="rf_per_dc") Integer rfPerDc)
@@ -439,6 +455,12 @@ public class NodeOpsProvider
     public List<Map<String, List<Map<String, String>>>> getStreamInfo()
     {
         return ShimLoader.instance.get().getStreamInfo();
+    }
+
+    @Rpc(name = "getSchemaVersions")
+    public Map<String, List<String>> getSchemaVersions()
+    {
+        return StorageProxy.instance.getSchemaVersions();
     }
 
     @Rpc(name = "getKeyspaces")

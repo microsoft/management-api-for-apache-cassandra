@@ -147,6 +147,12 @@ public class NodeOpsProvider
         return seeds.stream().map(InetAddress::toString).collect(Collectors.toList());
     }
 
+    @Rpc(name = "getOperationMode")
+    public String getOperationMode()
+    {
+        logger.debug("Getting Storage Service Operation Mode");
+        return ShimLoader.instance.get().getStorageService().getOperationMode();
+    }
 
     @Rpc(name = "getReleaseVersion")
     public String getReleaseVersion()

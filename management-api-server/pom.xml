@@ -13,14 +13,13 @@
 
     <properties>
         <slf4j.version>1.7.25</slf4j.version>
-        <logback.version>1.2.3</logback.version>
+        <logback.version>1.2.9</logback.version>
         <rsapi.version>2.1.1</rsapi.version>
         <guava.version>30.1.1-jre</guava.version>
         <airline.version>2.7.0</airline.version>
         <jaxrs.version>2.1.6</jaxrs.version>
         <resteasy.version>4.5.9.Final</resteasy.version>
         <netty.version>4.1.50.Final</netty.version>
-        <cassandra3.version>3.11.12</cassandra3.version>
         <docker.java.version>3.2.8</docker.java.version>
         <awaitility.version>4.0.3</awaitility.version>
         <assertj.version>3.17.2</assertj.version>
@@ -196,7 +195,7 @@
                         <configuration>
                             <target unless="cassandra.bin.exists" >
                                 <mkdir dir=".cassandra-bin"/>
-                                <get src="https://downloads.apache.org/cassandra/${cassandra3.version}/apache-cassandra-${cassandra3.version}-bin.tar.gz"
+                                <get src="https://archive.apache.org/dist/cassandra/${cassandra3.version}/apache-cassandra-${cassandra3.version}-bin.tar.gz"
                                      dest=".cassandra-bin/"/>
                                 <untar src=".cassandra-bin/apache-cassandra-${cassandra3.version}-bin.tar.gz" dest=".cassandra-bin/"
                                        compression="gzip"/>

@@ -6,9 +6,12 @@
 package com.datastax.mgmtapi;
 
 
-import java.io.IOException;
+import java.io.File;
+import java.io.FileNotFoundException;
 import java.net.InetAddress;
+import java.net.MalformedURLException;
 import java.net.UnknownHostException;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -58,8 +61,10 @@ import org.apache.cassandra.auth.RoleResource;
 import org.apache.cassandra.cql3.UntypedResultSet;
 import org.apache.cassandra.db.ConsistencyLevel;
 import org.apache.cassandra.db.marshal.UTF8Type;
+import org.apache.cassandra.exceptions.ConfigurationException;
 import org.apache.cassandra.repair.RepairParallelism;
 import org.apache.cassandra.repair.messages.RepairOption;
+import org.apache.cassandra.config.*;
 
 /**
  * Replace JMX calls with CQL 'CALL' methods via the Rpc framework
@@ -159,6 +164,21 @@ public class NodeOpsProvider
     {
         logger.debug("Getting Release Version");
         return ShimLoader.instance.get().getStorageService().getReleaseVersion();
+    }
+
+    @Rpc(name = "validateCassandraConfigYaml")
+    public void validateCassandraConfigYaml(@RpcParam(name="path") String path) throws FileNotFoundException, ConfigurationException
+    {
+        logger.debug(String.format("Validating cassandra yaml config at %s", path));
+
+        File configFile = new File(path);
+        if (!configFile.exists())
+        {
+            logger.error(String.format("Config file %s does not exist", path));
+            throw new FileNotFoundException(String.format("Config file %s does not exist", path));
+        }
+
+        new YamlConfigurationLoader().loadConfig(configFile.toURI().toURL());
     }
 
     @Rpc(name = "decommission")

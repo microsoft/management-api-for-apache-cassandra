@@ -8,6 +8,7 @@ package com.datastax.mgmtapi;
 
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.net.InetAddress;
 import java.net.MalformedURLException;
 import java.net.UnknownHostException;
@@ -167,7 +168,7 @@ public class NodeOpsProvider
     }
 
     @Rpc(name = "validateCassandraConfigYaml")
-    public void validateCassandraConfigYaml(@RpcParam(name="path") String path) throws FileNotFoundException, ConfigurationException
+    public String validateCassandraConfigYaml(@RpcParam(name="path") String path) throws FileNotFoundException, MalformedURLException
     {
         logger.debug(String.format("Validating cassandra yaml config at %s", path));
 
@@ -178,7 +179,15 @@ public class NodeOpsProvider
             throw new FileNotFoundException(String.format("Config file %s does not exist", path));
         }
 
-        new YamlConfigurationLoader().loadConfig(configFile.toURI().toURL());
+        try {
+            new YamlConfigurationLoader().loadConfig(configFile.toURI().toURL());
+        }
+        catch(ConfigurationException ex) {
+            logger.error(String.format("Config present at %s is invalid", path), ex);
+            return ex.getMessage();
+        }
+        
+        return "";
     }
 
     @Rpc(name = "decommission")

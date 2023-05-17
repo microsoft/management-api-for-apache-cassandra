@@ -43,7 +43,6 @@ public interface CassandraAPI
     default public boolean isFullQueryLogEnabled() 
     {
         throw new UnsupportedOperationException("FQL is only supported on OSS Cassandra > 4x.");
-        
     }
 
     void decommission(boolean force) throws InterruptedException;
@@ -64,6 +63,11 @@ public interface CassandraAPI
     List<Map<String,String>> getEndpointStates();
 
     List<Map<String, List<Map<String, String>>>> getStreamInfo();
+
+    default public Map<String, Map<String, String>> getThreadPoolInfo(List<String> poolNames) throws Throwable 
+    {
+        throw new UnsupportedOperationException("Use virtual tables for getting thread pool info on OSS Cassandra > 4x.");
+    }
 
     default UntypedResultSet processQuery(String query, ConsistencyLevel consistencyLevel)
     {

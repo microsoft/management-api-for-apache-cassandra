@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -24,6 +25,9 @@ import com.google.common.collect.ImmutableMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.codahale.metrics.Counter;
+import com.codahale.metrics.Gauge;
+import com.codahale.metrics.Metric;
 import com.datastax.mgmtapi.shims.CassandraAPI;
 import com.datastax.mgmtapi.shims.RpcStatementShim;
 import io.netty.channel.Channel;
@@ -46,6 +50,7 @@ import org.apache.cassandra.locator.IEndpointSnitch;
 import org.apache.cassandra.locator.K8SeedProvider3x;
 import org.apache.cassandra.locator.SeedProvider;
 import org.apache.cassandra.locator.TokenMetadata;
+import org.apache.cassandra.metrics.CassandraMetricsRegistry;
 import org.apache.cassandra.schema.KeyspaceMetadata;
 import org.apache.cassandra.schema.KeyspaceParams;
 import org.apache.cassandra.service.StorageService;
@@ -261,6 +266,62 @@ public class CassandraAPI3x implements CassandraAPI
         }
 
         return result;
+    }
+
+    @Override
+    public Map<String, Map<String, String>> getThreadPoolInfo(List<String> poolNames) throws Throwable
+    {
+        try {
+            CassandraMetricsRegistry registry = CassandraMetricsRegistry.Metrics;
+            Map<String, Metric> metrics = registry.getMetrics();
+            Map<String, Map<String, String>> result = new LinkedHashMap<>();
+
+            for (String name: poolNames) {
+                String pathType;
+                if (name.equals("CounterMutationStage") || name.equals("MutationStage") || name.equals("ReadRepairStage")
+                        || name.equals("ReadStage") || name.equals("RequestResponseStage") || name.equals("ViewMutationStage")) {
+                    pathType = "request";
+                } else {
+                    pathType = "internal";
+                }
+                Map<String, String> poolInfo = new LinkedHashMap<>();
+                poolInfo.put("Active", getMetricValue(metrics.get("org.apache.cassandra.metrics.ThreadPools.ActiveTasks." 
+                        + pathType + "." + name)));
+                poolInfo.put("Pending", getMetricValue(metrics.get("org.apache.cassandra.metrics.ThreadPools.PendingTasks." 
+                        + pathType + "." + name)));
+                poolInfo.put("Completed", getMetricValue(metrics.get("org.apache.cassandra.metrics.ThreadPools.CompletedTasks." 
+                        + pathType + "." + name)));
+                poolInfo.put("Blocked", getMetricValue(metrics.get("org.apache.cassandra.metrics.ThreadPools.CurrentlyBlockedTasks." 
+                        + pathType + "." + name)));
+                poolInfo.put("AllTimeBlocked", getMetricValue(metrics.get("org.apache.cassandra.metrics.ThreadPools.TotalBlockedTasks." 
+                        + pathType + "." + name)));
+                result.put(name, poolInfo);
+            }
+            return result;
+        } catch (Throwable e) {
+            logger.error("Exception thrown while fetching thread pool metrics", e);
+            throw e;
+        }
+    }
+
+    private String getMetricValue(Metric metric) throws Throwable
+    {
+        try {
+            String value;
+            if (metric instanceof Counter) {
+                Counter counter = (Counter) metric;
+                value = String.valueOf(counter.getCount());
+            } else if (metric instanceof Gauge) {
+                Gauge<?> gauge = (Gauge<?>) metric;
+                value = String.valueOf(gauge.getValue().toString());
+            } else {
+                throw new Exception("Failed to convert CassandraMetricsRegistry thread pool Metric to an accepted data type");
+            }
+            return value;
+        } catch (Throwable e) {
+            logger.error("Error getting value from thread pool metric");
+            throw e;
+        }
     }
 
     @Override

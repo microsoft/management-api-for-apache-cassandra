@@ -492,6 +492,18 @@ public class NodeOpsProvider
         return ShimLoader.instance.get().getStreamInfo();
     }
 
+    @Rpc(name = "getThreadPoolInfo")
+    public Map<String, Map<String, String>> getThreadPoolInfo(@RpcParam(name = "poolNames") List<String> poolNames) throws Throwable
+    {
+        String cassVersion = ShimLoader.instance.get().getStorageService().getReleaseVersion();
+        logger.debug("Attempting to retrieve thread pool info for cassandra version" + cassVersion + ".");
+        if (Integer.parseInt(cassVersion.split("\\.")[0]) >= 4){
+            logger.error("Getting thread pool info through API is not available in Cassandra >= 4.0. This call is going to fail.");
+        }
+        logger.debug("Calling ShimLoader.instance.get().getThreadPoolInfo()");
+        return ShimLoader.instance.get().getThreadPoolInfo(poolNames);
+    }
+
     @Rpc(name = "getSchemaVersions")
     public Map<String, List<String>> getSchemaVersions()
     {

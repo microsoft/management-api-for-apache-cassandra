@@ -142,6 +142,39 @@ public class NodeOpsProvider
         return ShimLoader.instance.get().isFullQueryLogEnabled();
     }
 
+    @Rpc(name = "setGossipEnabled")
+    public void setGossipEnabled(@RpcParam(name="enabled") boolean gossipEnabled)
+    {
+        logger.debug("Attempting to enable gossip " + gossipEnabled);
+        if (gossipEnabled) {
+            ShimLoader.instance.get().getStorageService().startGossiping();
+        } else {
+            ShimLoader.instance.get().getStorageService().stopGossiping();
+        }
+    }
+    @Rpc(name = "isGossipRunning")
+    public boolean isGossipRunning()
+    {
+        return ShimLoader.instance.get().getStorageService().isGossipRunning();
+    }
+
+    @Rpc(name = "setNativeTransportEnabled")
+    public void setNativeTransportEnabled(@RpcParam(name="enabled") boolean nativeTransportEnabled)
+    {
+        logger.debug("Attempting to enable native transport " + nativeTransportEnabled);
+        if (nativeTransportEnabled) {
+            ShimLoader.instance.get().getStorageService().startNativeTransport();
+        } else {
+            ShimLoader.instance.get().getStorageService().stopNativeTransport();
+        }
+    }
+
+    @Rpc(name = "isNativeTransportRunning")
+    public boolean isNativeTransportRunning()
+    {
+        return ShimLoader.instance.get().getStorageService().isNativeTransportRunning();
+    }
+
     @Rpc(name = "reloadSeeds")
     public List<String> reloadSeeds()
     {

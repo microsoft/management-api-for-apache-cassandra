@@ -7,59 +7,74 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        cassandra-version: [3.11, 4.0]
+        cassandra-version: ['3.11', '4.0', '4.1']
         include:
-          - cassandra-version: 3.11
+          - cassandra-version: '3.11'
             run311tests: true
             run40tests: false
-          - cassandra-version: 4.0
+            run41tests: false
+          - cassandra-version: '4.0'
             run311tests: false
             run40tests: true
+            run41tests: false
+          - cassandra-version: '4.1'
+            run311tests: false
+            run40tests: false
+            run41tests: true
 
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
-      - name: Set up JDK 1.8
-        uses: actions/setup-java@v1
+      - uses: actions/checkout@v3
+      - name: Set up JDK 11
+        uses: actions/setup-java@v3
         with:
-          java-version: 1.8
+          java-version: 11
+          distribution: 'zulu'
       - name: Cache Maven packages
-        uses: actions/cache@v1
+        uses: actions/cache@v3
         with:
           path: ~/.m2
           key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
           restore-keys: ${{ runner.os }}-m2
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v1
+        uses: docker/setup-qemu-action@v2
       - name: Setup Buildx
         id: buildx
-        uses: docker/setup-buildx-action@v1
+        uses: docker/setup-buildx-action@v2
         with:
           version: latest
       - name: Build with Maven and run tests
         run: |
-          mvn -B -q install --file pom.xml -Drun311tests=${{ matrix.run311tests }} -Drun40tests=${{ matrix.run40tests }}
+          mvn -B -q install --file pom.xml -Drun311tests=${{ matrix.run311tests }} -Drun40tests=${{ matrix.run40tests }} -Drun41tests=${{ matrix.run41tests }}
+      - name: Upload mgmt-api agents
+        uses: actions/upload-artifact@v3
+        with:
+          name: oss-snapshots.zip
+          path: |
+            management-api-agent-4*/target/datastax-mgmtapi-agent-*-0.1.0-SNAPSHOT.jar
+            management-api-agent-3*/target/datastax-mgmtapi-agent-*-0.1.0-SNAPSHOT.jar
   build-dse:
-    if: ${{ github.ref == 'refs/heads/master' && github.event_name == 'push'}}
+    if: github.repository_owner == 'k8ssandra'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - name: Set up JDK 1.8
-        uses: actions/setup-java@v1
+      - uses: actions/checkout@v3
+      - name: Set up JDK 11
+        uses: actions/setup-java@v3
         with:
-          java-version: 1.8
+          java-version: 11
+          distribution: 'zulu'
       - name: Cache Maven packages
-        uses: actions/cache@v1
+        uses: actions/cache@v3
         with:
           path: ~/.m2
           key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
           restore-keys: ${{ runner.os }}-m2
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v1
+        uses: docker/setup-qemu-action@v2
       - name: Setup Buildx
         id: buildx
-        uses: docker/setup-buildx-action@v1
+        uses: docker/setup-buildx-action@v2
         with:
           version: latest
       - name: Build with Maven and run tests
@@ -82,6 +97,12 @@ jobs:
           EOF
           cp ~/.m2/settings.xml settings.xml
           mvn -B -q install --file pom.xml -P dse -DrunDSEtests=true
+      - name: Upload DSE mgmt-api
+        uses: actions/upload-artifact@v3
+        with:
+          name: datastax-mgmtapi-agent-dse-6.8-0.1.0-SNAPSHOT.jar
+          path: management-api-agent-dse-6.8/target/datastax-mgmtapi-agent-dse-6.8-0.1.0-SNAPSHOT.jar
+
   publish-oss:
     name: Publish ${{ matrix.cassandra-version }} Cassandra image
     if: ${{ github.ref == 'refs/heads/master' && github.event_name == 'push'}}
@@ -96,29 +117,32 @@ jobs:
           - cassandra-version: '4.0'
             docker-file: Dockerfile-4_0
             build-target: oss40
+          - cassandra-version: '4.1'
+            docker-file: Dockerfile-4_1
+            build-target: oss41
     steps:
       - name: Check out source code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       # Setup metadata based on the commit/tag that will be used for tagging the image
       # Only build and publish a commit based tag
       - name: Setup Docker meta
         id: meta
-        uses: docker/metadata-action@v3
+        uses: docker/metadata-action@v4
         with:
           images: k8ssandra/cass-management-api
           tags: type=sha,prefix=${{ matrix.cassandra-version }}-
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v1
+        uses: docker/setup-qemu-action@v2
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
+        uses: docker/setup-buildx-action@v2
       - name: Login to DockerHub
-        uses: docker/login-action@v1
+        uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_PASSWORD }}
-      - name: Build and push
+      - name: Build and push Cassandra ${{ matrix.cassandra-version }}
         id: docker_build
-        uses: docker/build-push-action@v2
+        uses: docker/build-push-action@v3
         with:
           file: ${{ matrix.docker-file }}
           context: .
@@ -126,14 +150,17 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           platforms: linux/amd64,linux/arm64
           target: ${{ matrix.build-target }}
-  publish-dse:
-    name: Publish DSE image
+  publish-dse-ubuntu:
+    name: Publish DSE Ubuntu images
     if: ${{ github.ref == 'refs/heads/master' && github.event_name == 'push'}}
     needs: build-dse
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        jdk-version: [jdk8, jdk11]
     steps:
       - name: Check out source code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Setup Maven settings file
         run: |
           mkdir -p ~/.m2
@@ -158,23 +185,82 @@ jobs:
       # Only build and publish a commit based tag
       - name: Setup Docker meta
         id: meta
-        uses: docker/metadata-action@v3
+        uses: docker/metadata-action@v4
         with:
           images: datastax/dse-mgmtapi-6_8
-          tags: type=sha,prefix=dse68-
+          tags: type=sha,prefix=dse68-${{ matrix.jdk-version }}-
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
+        uses: docker/setup-buildx-action@v2
       - name: Login to DockerHub
-        uses: docker/login-action@v1
+        uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_PASSWORD }}
-      - name: Build and push
+      - name: Build and push DSE 6.8-${{ matrix.jdk-version }}
         id: docker_build
-        uses: docker/build-push-action@v2
+        uses: docker/build-push-action@v3
         with:
-          file: Dockerfile-dse-68
+          file: dse-68/Dockerfile.${{ matrix.jdk-version }}
           context: .
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           platforms: linux/amd64
+          target: dse68
+
+  publish-dse-ubi:
+    name: Publish DSE UBI image
+    if: ${{ github.ref == 'refs/heads/master' && github.event_name == 'push'}}
+    needs: publish-dse-ubuntu
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source code
+        uses: actions/checkout@v3
+      - name: Setup Maven settings file
+        run: |
+          mkdir -p ~/.m2
+          cat <<EOF > ~/.m2/settings.xml
+          <settings>
+            <servers>
+              <server>
+                <id>artifactory-snapshots</id>
+                <username>${{ secrets.ARTIFACTORY_USERNAME }}</username>
+                <password>${{ secrets.ARTIFACTORY_PASSWORD }}</password>
+              </server>
+              <server>
+                <id>artifactory-releases</id>
+                <username>${{ secrets.ARTIFACTORY_USERNAME }}</username>
+                <password>${{ secrets.ARTIFACTORY_PASSWORD }}</password>
+             </server>
+           </servers>
+          </settings>
+          EOF
+          cp ~/.m2/settings.xml settings.xml
+      # Setup metadata based on the commit/tag that will be used for tagging the image
+      # Only build and publish a commit based tag
+      - name: Setup Docker meta
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: datastax/dse-mgmtapi-6_8
+          tags: type=sha,prefix=dse68-ubi7-
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+      - name: Login to DockerHub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_PASSWORD }}
+      - name: Set outputs
+        id: vars
+        run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+      - name: Build and push DSE 6.8-ubi7
+        id: docker_build
+        uses: docker/build-push-action@v3
+        with:
+          file: dse-68/Dockerfile.ubi7
+          build-args: VERSION=dse68-jdk8-${{ steps.vars.outputs.sha_short }}
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          platforms: linux/amd64
+          target: dse68

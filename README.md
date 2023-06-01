@@ -52,38 +52,74 @@
 
 ## Building
 
+### Minimum Java Version
+
+The project has been updated to now require JDK11 or newer to build. The jarfile artifacts
+are still compiled to Java8 as Java8 is still what some Cassandra versiosn ship with.
+
+### Supported Image Matrix
+
+The following versions of Cassandra and DSE are published to Docker and supported:
+
+Cassandra 3.11.x
+
+      k8ssandra/cass-management-api:3.11.7
+      k8ssandra/cass-management-api:3.11.8
+      k8ssandra/cass-management-api:3.11.11
+      k8ssandra/cass-management-api:3.11.12
+      k8ssandra/cass-management-api:3.11.13
+      k8ssandra/cass-management-api:3.11.14
+
+Cassandra 4.0.x
+
+      k8ssandra/cass-management-api:4.0.0
+      k8ssandra/cass-management-api:4.0.1
+      k8ssandra/cass-management-api:4.0.3
+      k8ssandra/cass-management-api:4.0.4
+      k8ssandra/cass-management-api:4.0.5
+      k8ssandra/cass-management-api:4.0.6
+      k8ssandra/cass-management-api:4.0.7
+      k8ssandra/cass-management-api:4.0.8
+      k8ssandra/cass-management-api:4.0.9
+
+Cassandra 4.1.x
+
+      k8ssandra/cass-management-api:4.1.0
+      k8ssandra/cass-management-api:4.1.1
+
+Cassandra trunk
+
+      k8ssandra/cass-management-api:4.2.0
+
+DSE 6.8.x
+
+      datastax/dse-mgmtapi-6_8:6.8.25 (jdk8, jdk11 and ubi7 based images)
+      datastax/dse-mgmtapi-6_8:6.8.26 (jdk8, jdk11 and ubi7 based images)
+      datastax/dse-mgmtapi-6_8:6.8.28 (jdk8, jdk11 and ubi7 based images)
+      datastax/dse-mgmtapi-6_8:6.8.29 (jdk8, jdk11 and ubi7 based images)
+      datastax/dse-mgmtapi-6_8:6.8.30 (jdk8, jdk11 and ubi7 based images)
+      datastax/dse-mgmtapi-6_8:6.8.31 (jdk8, jdk11 and ubi7 based images)
+      datastax/dse-mgmtapi-6_8:6.8.32 (jdk8, jdk11 and ubi7 based images)
+      datastax/dse-mgmtapi-6_8:6.8.33 (jdk8, jdk11 and ubi7 based images)
+      datastax/dse-mgmtapi-6_8:6.8.34 (jdk8, jdk11 and ubi7 based images)
+
+### Cassandra trunk
+
+For building an image based on the latest from Cassandra trunk, see this [README](management-api-agent-4.2.x/README.md)
+
 ### Containers
 
-First you need to build the Management API base image
+First, you will need to have the [Docker buildx plugin](https://docs.docker.com/build/buildx/install/) installed.
 
-(*Deprecated: For Cassandra 3.11 and 4.0 images, as well as DSE 6.8 images, you do not need to build the Management API builder image*):
-
-    docker build -t management-api-for-apache-cassandra-builder -f ./Dockerfile-build .
-
-Then you need to build the image based on the actual Cassandra version, either the 3.11 or 4.0:
-
-**NOTE:** For building 3.11 and 4.0 images, you will need to have the [Docker buildx plugin](https://docs.docker.com/buildx/working-with-buildx/) installed.
+To build an image based on the desired Cassandra version see the examples below:
 
     #Create a docker image with management api and C* 3.11 (version 3.11.7 and newer are supported, replace `3.11.11` with the version you want below)
     docker buildx build --load --build-arg CASSANDRA_VERSION=3.11.11 --tag mgmtapi-3_11 --file Dockerfile-oss --target oss311 --platform linux/amd64 .
 
-    #Create a docker image with management api and C* 4.0 (version 4.0.0 and 4.0.1 are supported)
+    #Create a docker image with management api and C* 4.0 (version 4.0.0 and newer are supported)
     docker buildx build --load --build-arg CASSANDRA_VERSION=4.0.1 --tag mgmtapi-4_0 --file Dockerfile-4_0 --target oss40 --platform linux/amd64 .
 
-You can also build an image based on Datastax Astra Cassandra 4.0 sources. First checkout [sources](https://github.com/datastax/cassandra/tree/astra) and build a tgz distribution:
-
-    ant artifacts
-
-Then copy the tgz archive into the astra-4.0 directory of the Management API sources and run:
-
-    cd astra-4.0
-    docker build -t datastax/astra:4.0 .
-
-Finally build the Management API image:
-
-    cd ..
-    docker build -t mgmtapi-astra-4_0 -f Dockerfile-astra-4_0 .
-
+To build an image based on DSE, see the [DSE README](management-api-agent-dse-6.8/README.md).
 
 ### Standalone
 
@@ -110,15 +146,7 @@ Finally build the Management API image:
 
   - [Management API for Apache Cassandra](https://hub.docker.com/repository/docker/k8ssandra/cass-management-api)
 
-  For different Cassandra versions, you will need to specify the Cassandra version as an image tag. The following lists the currently supported versions
-
-      k8ssandra/cass-management-api:3.11.7
-      k8ssandra/cass-management-api:3.11.8
-      k8ssandra/cass-management-api:3.11.9 (**Deprecated: last version is v0.1.27**)
-      k8ssandra/cass-management-api:3.11.10 (**Deprecated: last version is v0.1.27**)
-      k8ssandra/cass-management-api:3.11.11
-      k8ssandra/cass-management-api:4.0.0
-      k8ssandra/cass-management-api:4.0.1
+  For different Cassandra versions, you will need to specify the Cassandra version as an image tag. See the [supported image matrix](#supported-image-matrix) above.
 
   Each of the above examples will always point to the **latest** Management API version for the associated Cassandra version. If you want a specific
   Management API version, you can append the desired version to the Cassandra version tag. For example, if you want v0.1.24 of Management API for Cassandra version 3.11.9:
@@ -133,9 +161,7 @@ Finally build the Management API image:
   - [Management API for Apache Cassandra 3.11.10](https://hub.docker.com/repository/docker/datastax/cassandra-mgmtapi-3_11_10)
   - [Management API for Apache Cassandra 4.0-beta4](https://hub.docker.com/repository/docker/datastax/cassandra-mgmtapi-4_0_0).
 
-  For DSE Docker images, the location remains unchanged
-
-  - [Management API for DSE 6.8](https://hub.docker.com/repository/docker/datastax/dse-mgmtapi-6_8)
+  For DSE Docker images, see the [DSE README](management-api-agent-dse-6.8/README.md).
 
   For running standalone the jars can be downloaded from the github release:
      [Management API Releases Zip](https://github.com/k8ssandra/management-api-for-apache-cassandra/releases)
@@ -156,19 +182,9 @@ Finally build the Management API image:
 
 ## Usage with DSE
 
-A DSE jar must be locally available before running the Management API with DSE. Details are described in the [DSE README](management-api-shim-dse-6.8/README.md).
-Once you have DSE jars published locally, follow these steps:
-```
-# The builder image needs to have Maven settings.xml (that provides access to Artifactory):
-cp $HOME/.m2/settings.xml $PWD
+Please see the [DSE README](management-api-agent-dse-6.8/README.md) for details.
 
-docker build -t mgmtapi-dse -f Dockerfile-dse-68 .
-
-docker run -p 8080:8080 -it --rm mgmtapi-dse
-
-```
-
-### Using the Service with a locally installed C* or DSE instance
+## Using the Service with a locally installed C* or DSE instance
 
 
   To start the service with a locally installed C* or DSE instance, you would run the below commands. The Management API will figure out
@@ -197,6 +213,105 @@ docker run -p 8080:8080 -it --rm mgmtapi-dse
     OK
 
 # Making changes
+
+## Code Formatting
+
+### Gogle Java Style
+
+The project uses [google-java-format](https://github.com/google/google-java-format) and enforces the
+[Google Java Style](https://google.github.io/styleguide/javaguide.html) for all Java souce files. The
+Maven plugin is configured to check the style during compile and it will fail the compile if it finds
+a file that does not adhere to the coding standard.
+
+#### Checking the format
+
+If you want to check the formatting from the command line after making changes, you can simply run:
+
+    mvn fmt:check
+
+NOTE: If you are making changes in the DSE agent, you ened to enable the `dse` profile:
+
+    mvn -Pdse fmt:check
+
+#### Formatting the code
+
+If you want have the plugin format the code for you, you can simply run:
+
+    mvn fmt:format
+
+NOTE: If you are making changes in the DSE agent, you ened to enable the `dse` profile:
+
+    mvn -Pdse fmt:format
+
+#### Using Checkstyle in an IDE
+
+You can also install a checkstyle file in some popular IDEs to automatically format your code. The
+Google checkstyle file can be found here: [google_checks.xml](checkstyle/google_checks.xml)
+
+Refer to your IDE's documentation for installing and setting up checkstyle.
+
+### Source code headers
+
+In addtion to Java style formatting, the project also enforces that source files have the correct
+header. Source files include `.java`, `.xml` and `.properties` files. The Header should be:
+
+    /*
+     * Copyright DataStax, Inc.
+     *
+     * Please see the included license file for details.
+     */
+
+for Java files. For XML and Properties files, the same header should exist, with the appropriate
+comment characters replacing the Java comment characters above.
+
+Just like the Coding style, the Headers are checked at compile time and will fail the compie if
+they aren't correct.
+
+#### Checking the headers
+
+If you want to check the headers from the command line after making changes, you can simply run:
+
+    mvn license:check
+
+NOTE: If you are making changes in the DSE agent, you ened to enable the `dse` profile:
+
+    mvn -Pdse license:check
+
+#### Formatting the code
+
+If you want have the plugin format the headers for you, you can simply run:
+
+    mvn license:format
+
+NOTE: If you are making changes in the DSE agent, you ened to enable the `dse` profile:
+
+    mvn -Pdse license:format
+
+### XML formatting
+
+The projet also enforces a standard XML format. Again, it is checked at compile time and will fail
+the compile if XML files are not formatted correctly. See the plugin documentation for formatting
+details here: https://acegi.github.io/xml-format-maven-plugin/?utm_source=mavenlibs.com
+
+#### Checking XML file formatting
+
+If you want to check XML files from the command line after making changes, you can simply run:
+
+    mvn xml-format:xml-check
+
+NOTE: If you are making changes in the DSE agent, you ened to enable the `dse` profile:
+
+    mvn -Pdse xml-format:xml-check
+
+#### Formatting XML files
+
+If you want have the plugin format XML files for you, you can simply run:
+
+    mvn xml-format:xml-format
+
+NOTE: If you are making changes in the DSE agent, you ened to enable the `dse` profile:
+
+    mvn -Pdse xml-format:xml-format
 
 ## Design Summary
 

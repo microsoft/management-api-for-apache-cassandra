@@ -222,6 +222,7 @@
                     "LOAD" : "135527.0",
                     "NATIVE_ADDRESS_AND_PORT" : "172.17.0.2:9042",
                     "NET_VERSION" : "12",
+                    "PARTITIONER" : "org.apache.cassandra.dht.Murmur3Partitioner",
                     "RACK" : "rack1",
                     "RELEASE_VERSION" : "4.0.1",
                     "RPC_ADDRESS" : "172.17.0.2",
@@ -230,7 +231,7 @@
                     "SSTABLE_VERSIONS" : "big-nb",
                     "STATUS" : "NORMAL,-2444908528344618126",
                     "STATUS_WITH_PORT" : "NORMAL,-2444908528344618126",
-                    "TOKENS" : "<tokens>"
+                    "TOKENS" : "-2088271209278749360,-3055635452357284858,-4299155458037876832,-498266656764850722,-5378528265485478489,-6114443958196372130,-7190199839421951670,-8007871772034302464,-9025723176776729480,1120756638932192574,2098902091448306650,3877536392271893778,4973578292506832067,6064875403199044326,6909252050690206084,8349520280592789322"
                   } ],
                   "variant" : {
                     "language" : null,
@@ -404,7 +405,7 @@
             "description" : "Job not found"
           }
         },
-        "summary" : "Returns Job deatils for the supplied Job ID"
+        "summary" : "Returns Job details for the supplied Job ID"
       }
     },
     "/api/v0/ops/keyspace" : {
@@ -836,6 +837,43 @@
           }
         },
         "summary" : "Set the log level threshold for a given component or class. Will reset to the initial configuration if called with no parameters."
+      }
+    },
+    "/api/v0/ops/node/move" : {
+      "post" : {
+        "operationId" : "move",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "newToken",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "202" : {
+            "content" : {
+              "text/plain" : {
+                "example" : "d69d1d95-9348-4460-95d2-ae342870fade",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            },
+            "description" : "Job ID for successfully scheduled Cassandra node move request"
+          },
+          "400" : {
+            "content" : {
+              "text/plain" : {
+                "example" : "newToken must be specified",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            },
+            "description" : "Missing required newToken parameter"
+          }
+        },
+        "summary" : "Move node on the token ring to a new token. This operation returns immediately with a job id."
       }
     },
     "/api/v0/ops/node/repair" : {
@@ -1524,6 +1562,105 @@
         },
         "summary" : "Get schema versions."
       }
+    },
+    "/api/v1/ops/tables/compact" : {
+      "post" : {
+        "operationId" : "compact_1",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CompactRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "202" : {
+            "content" : {
+              "text/plain" : {
+                "example" : "d69d1d95-9348-4460-95d2-ae342870fade",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            },
+            "description" : "Job ID for keyspace compaction process"
+          },
+          "400" : {
+            "content" : {
+              "text/plain" : {
+                "example" : "Invalid option combination: Can not use split-output here"
+              }
+            },
+            "description" : "Invalid table compaction request"
+          }
+        },
+        "summary" : "Force a (major) compaction on one or more tables or user-defined compaction on given SSTables"
+      }
+    },
+    "/api/v1/ops/tables/scrub" : {
+      "post" : {
+        "operationId" : "scrub_1",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ScrubRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "202" : {
+            "content" : {
+              "text/plain" : {
+                "example" : "d69d1d95-9348-4460-95d2-ae342870fade",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            },
+            "description" : "Job ID for table scrub process"
+          }
+        },
+        "summary" : "Scrub (rebuild sstables for) one or more tables. This operation is asynchronous and returns immediately."
+      }
+    },
+    "/api/v1/ops/tables/sstables/upgrade" : {
+      "post" : {
+        "operationId" : "upgradeSSTables_1",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "excludeCurrentVersion",
+          "schema" : {
+            "type" : "boolean"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/KeyspaceRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "202" : {
+            "content" : {
+              "text/plain" : {
+                "example" : "d69d1d95-9348-4460-95d2-ae342870fade",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            },
+            "description" : "Job ID for keyspace SSTable upgrade process"
+          }
+        },
+        "summary" : "Rewrite sstables (for the requested tables) that are not on the current version (thus upgrading them to said current version). This operation is asynchronous and returns immediately."
+      }
     }
   },
   "components" : {
@@ -1634,7 +1771,7 @@
             "type" : "array",
             "items" : {
               "type" : "string",
-              "enum" : [ "ASYNC_SSTABLE_TASKS", "FULL_QUERY_LOGGING", "REBUILD" ]
+              "enum" : [ "ASYNC_SSTABLE_TASKS", "FULL_QUERY_LOGGING", "REBUILD", "ASYNC_UPGRADE_SSTABLE_TASK", "ASYNC_COMPACTION_TASKS", "ASYNC_SCRUB_TASK", "ASYNC_MOVE_TASK" ]
             }
           },
           "mgmt_version" : {

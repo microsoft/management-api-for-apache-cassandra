@@ -6,11 +6,19 @@ on:
       - 'v*.*.*'
 
 jobs:
-  build-dse-6_8:
+  build-dse-68-ubuntu:
+    strategy:
+      fail-fast: false
+      matrix:
+        dse-version: [6.8.25, 6.8.26, 6.8.28, 6.8.29, 6.8.30, 6.8.31, 6.8.32, 6.8.33, 6.8.34]
+        image-base: [jdk8, jdk11]
+        include:
+          - dse-version: 6.8.34
+            latest: true
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@master
-      - name: Build Management API in docker
+      - uses: actions/checkout@v3
+      - name: Setup Maven Settings File
         run: |
           mkdir -p ~/.m2
           cat <<EOF > ~/.m2/settings.xml
@@ -30,38 +38,157 @@ jobs:
           </settings>
           EOF
           cp ~/.m2/settings.xml settings.xml
-      - name: Get Release Version
-        id: get_version
-        run: echo "RELEASE_VERSION=$(echo ${GITHUB_REF##*/})" >> $GITHUB_ENV
-      - name: Publish DSE 6.8 to Registry
-        uses: elgohr/Publish-Docker-Github-Action@master
+      - name: Setup Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v2
         with:
-          name: datastax/dse-mgmtapi-6_8
+          version: latest
+      - name: Login to DockerHub
+        uses: docker/login-action@v2
+        with:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_PASSWORD }}
-          tags: '${{ env.RELEASE_VERSION }}'
-          dockerfile: Dockerfile-dse-68
+      - if: ${{ matrix.latest && matrix.image-base == 'jdk8' }}
+        name: Publish ${{ matrix.dse-version }} (${{ matrix.image-base }}) to Registry
+        run: |
+          RELEASE_VERSION="${GITHUB_REF##*/}"
+          docker buildx build --push \
+            --build-arg DSE_VERSION=${{ matrix.dse-version }} \
+            --tag datastax/dse-mgmtapi-6_8:6.8 \
+            --tag datastax/dse-mgmtapi-6_8:${{ matrix.dse-version }} \
+            --tag datastax/dse-mgmtapi-6_8:${{ matrix.dse-version }}-$RELEASE_VERSION \
+            --tag datastax/dse-mgmtapi-6_8:${{ matrix.dse-version }}-${{ matrix.image-base }} \
+            --tag datastax/dse-mgmtapi-6_8:${{ matrix.dse-version }}-${{ matrix.image-base }}-$RELEASE_VERSION \
+            --file dse-68/Dockerfile.${{ matrix.image-base }} \
+            --target dse68 \
+            --platform linux/amd64 .
+      - if: ${{ matrix.latest && matrix.image-base != 'jdk8' }}
+        name: Publish ${{ matrix.dse-version }} (${{ matrix.image-base }}) to Registry
+        run: |
+          RELEASE_VERSION="${GITHUB_REF##*/}"
+          docker buildx build --push \
+            --build-arg DSE_VERSION=${{ matrix.dse-version }} \
+            --tag datastax/dse-mgmtapi-6_8:6.8-${{ matrix.image-base }} \
+            --tag datastax/dse-mgmtapi-6_8:${{ matrix.dse-version }}-${{ matrix.image-base }} \
+            --tag datastax/dse-mgmtapi-6_8:${{ matrix.dse-version }}-${{ matrix.image-base }}-$RELEASE_VERSION \
+            --file dse-68/Dockerfile.${{ matrix.image-base }} \
+            --target dse68 \
+            --platform linux/amd64 .
+      - if: ${{ !matrix.latest && matrix.image-base == 'jdk8' }}
+        name: Publish ${{ matrix.dse-version }} (${{ matrix.image-base }}) to Registry
+        run: |
+          RELEASE_VERSION="${GITHUB_REF##*/}"
+          docker buildx build --push \
+            --build-arg DSE_VERSION=${{ matrix.dse-version }} \
+            --tag datastax/dse-mgmtapi-6_8:${{ matrix.dse-version }} \
+            --tag datastax/dse-mgmtapi-6_8:${{ matrix.dse-version }}-$RELEASE_VERSION \
+            --tag datastax/dse-mgmtapi-6_8:${{ matrix.dse-version }}-${{ matrix.image-base }} \
+            --tag datastax/dse-mgmtapi-6_8:${{ matrix.dse-version }}-${{ matrix.image-base }}-$RELEASE_VERSION \
+            --file dse-68/Dockerfile.${{ matrix.image-base }} \
+            --target dse68 \
+            --platform linux/amd64 .
+      - if: ${{ !matrix.latest && matrix.image-base != 'jdk8' }}
+        name: Publish ${{ matrix.cassandra-version }} (${{ matrix.image-base }}) to Registry
+        run: |
+          RELEASE_VERSION="${GITHUB_REF##*/}"
+          docker buildx build --push \
+            --build-arg DSE_VERSION=${{ matrix.dse-version }} \
+            --tag datastax/dse-mgmtapi-6_8:${{ matrix.dse-version }}-${{ matrix.image-base }} \
+            --tag datastax/dse-mgmtapi-6_8:${{ matrix.dse-version }}-${{ matrix.image-base }}-$RELEASE_VERSION \
+            --file dse-68/Dockerfile.${{ matrix.image-base }} \
+            --target dse68 \
+            --platform linux/amd64 .
+
+  build-dse-68-ubi7:
+    needs: build-dse-68-ubuntu
+    strategy:
+      fail-fast: false
+      matrix:
+        dse-version: [6.8.25, 6.8.26, 6.8.28, 6.8.29, 6.8.30, 6.8.31, 6.8.32, 6.8.33, 6.8.34]
+        image-base: [ubi7]
+        include:
+          - dse-version: 6.8.34
+            latest: true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Maven Settings File
+        run: |
+          mkdir -p ~/.m2
+          cat <<EOF > ~/.m2/settings.xml
+          <settings>
+            <servers>
+              <server>
+                <id>artifactory-snapshots</id>
+                <username>${{ secrets.ARTIFACTORY_USERNAME }}</username>
+                <password>${{ secrets.ARTIFACTORY_PASSWORD }}</password>
+              </server>
+              <server>
+                <id>artifactory-releases</id>
+                <username>${{ secrets.ARTIFACTORY_USERNAME }}</username>
+                <password>${{ secrets.ARTIFACTORY_PASSWORD }}</password>
+             </server>
+           </servers>
+          </settings>
+          EOF
+          cp ~/.m2/settings.xml settings.xml
+      - name: Setup Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v2
+        with:
+          version: latest
+      - name: Login to DockerHub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_PASSWORD }}
+      - if: ${{ matrix.latest }}
+        name: Publish ${{ matrix.dse-version }} (${{ matrix.image-base }}) to Registry
+        run: |
+          RELEASE_VERSION="${GITHUB_REF##*/}"
+          docker buildx build --push \
+            --build-arg VERSION=${{ matrix.dse-version }} \
+            --tag datastax/dse-mgmtapi-6_8:6.8-${{ matrix.image-base }} \
+            --tag datastax/dse-mgmtapi-6_8:${{ matrix.dse-version }}-${{ matrix.image-base }} \
+            --tag datastax/dse-mgmtapi-6_8:${{ matrix.dse-version }}-${{ matrix.image-base }}-$RELEASE_VERSION \
+            --file dse-68/Dockerfile.${{ matrix.image-base }} \
+            --target dse68 \
+            --platform linux/amd64 .
+      - if: ${{ !matrix.latest }}
+        name: Publish ${{ matrix.cassandra-version }} (${{ matrix.image-base }}) to Registry
+        run: |
+          RELEASE_VERSION="${GITHUB_REF##*/}"
+          docker buildx build --push \
+            --build-arg VERSION=${{ matrix.dse-version }} \
+            --tag datastax/dse-mgmtapi-6_8:${{ matrix.dse-version }}-${{ matrix.image-base }} \
+            --tag datastax/dse-mgmtapi-6_8:${{ matrix.dse-version }}-${{ matrix.image-base }}-$RELEASE_VERSION \
+            --file dse-68/Dockerfile.${{ matrix.image-base }} \
+            --target dse68 \
+            --platform linux/amd64 .
 
   build-oss-3-11x:
     strategy:
       fail-fast: false
       matrix:
-        cassandra-version: [3.11.7, 3.11.8, 3.11.11, 3.11.12, 3.11.13]
+        cassandra-version: [3.11.7, 3.11.8, 3.11.11, 3.11.12, 3.11.13, 3.11.14]
         include:
-          - cassandra-version: 3.11.13
+          - cassandra-version: 3.11.14
             latest: true
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@master
+      - uses: actions/checkout@v3
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v1
+        uses: docker/setup-qemu-action@v2
       - name: Setup Buildx
         id: buildx
-        uses: docker/setup-buildx-action@v1
+        uses: docker/setup-buildx-action@v2
         with:
           version: latest
-      - name: Login to Docker Hub
-        run: echo "${{ secrets.DOCKER_HUB_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_HUB_USERNAME }}" --password-stdin
+      - name: Login to DockerHub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_PASSWORD }}
       - if: ${{ matrix.latest }}
         name: Publish ${{ matrix.cassandra-version }} to Registry
         run: |
@@ -90,22 +217,25 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        cassandra-version: [4.0.0, 4.0.1, 4.0.3, 4.0.4]
+        cassandra-version: [4.0.0, 4.0.1, 4.0.3, 4.0.4, 4.0.5, 4.0.6, 4.0.7, 4.0.8, 4.0.9]
         include:
-          - cassandra-version: 4.0.4
+          - cassandra-version: 4.0.9
             latest: true
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@master
+      - uses: actions/checkout@v3
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v1
+        uses: docker/setup-qemu-action@v2
       - name: Setup Buildx
         id: buildx
-        uses: docker/setup-buildx-action@v1
+        uses: docker/setup-buildx-action@v2
         with:
           version: latest
-      - name: Login to Docker Hub
-        run: echo "${{ secrets.DOCKER_HUB_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_HUB_USERNAME }}" --password-stdin
+      - name: Login to DockerHub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_PASSWORD }}
       - if: ${{ matrix.latest }}
         name: Publish ${{ matrix.cassandra-version }} to Registry
         run: |
@@ -129,3 +259,97 @@ jobs:
             --file Dockerfile-4_0 \
             --target oss40 \
             --platform linux/amd64,linux/arm64 .
+
+  build-oss-4-1x:
+    strategy:
+      fail-fast: false
+      matrix:
+        cassandra-version: [4.1.0, 4.1.1]
+        include:
+          - cassandra-version: 4.1.1
+            latest: true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+      - name: Setup Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v2
+        with:
+          version: latest
+      - name: Login to DockerHub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_PASSWORD }}
+      - if: ${{ matrix.latest }}
+        name: Publish ${{ matrix.cassandra-version }} to Registry
+        run: |
+          RELEASE_VERSION="${GITHUB_REF##*/}"
+          docker buildx build --push \
+            --build-arg CASSANDRA_VERSION=${{ matrix.cassandra-version }} \
+            --tag k8ssandra/cass-management-api:4.1 \
+            --tag k8ssandra/cass-management-api:${{ matrix.cassandra-version }} \
+            --tag k8ssandra/cass-management-api:${{ matrix.cassandra-version }}-$RELEASE_VERSION \
+            --file Dockerfile-4_1 \
+            --target oss41 \
+            --platform linux/amd64,linux/arm64 .
+      - if: ${{ !matrix.latest }}
+        name: Publish ${{ matrix.cassandra-version }} to Registry
+        run: |
+          RELEASE_VERSION="${GITHUB_REF##*/}"
+          docker buildx build --push \
+            --build-arg CASSANDRA_VERSION=${{ matrix.cassandra-version }} \
+            --tag k8ssandra/cass-management-api:${{ matrix.cassandra-version }} \
+            --tag k8ssandra/cass-management-api:${{ matrix.cassandra-version }}-$RELEASE_VERSION \
+            --file Dockerfile-4_1 \
+            --target oss41 \
+            --platform linux/amd64,linux/arm64 .
+# For now, 4.2 images are published nightly, so we don't need to also publish them on release
+#  build-oss-4-2x:
+#    strategy:
+#      fail-fast: false
+#      matrix:
+#        cassandra-version: [4.2.0]
+#        include:
+#          - cassandra-version: 4.2.0
+#            latest: true
+#    runs-on: ubuntu-latest
+#    steps:
+#      - uses: actions/checkout@v3
+#      - name: Set up QEMU
+#        uses: docker/setup-qemu-action@v2
+#      - name: Setup Buildx
+#        id: buildx
+#        uses: docker/setup-buildx-action@v2
+#        with:
+#          version: latest
+#      - name: Login to DockerHub
+#        uses: docker/login-action@v2
+#        with:
+#          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+#          password: ${{ secrets.DOCKER_HUB_PASSWORD }}
+#      - if: ${{ matrix.latest }}
+#        name: Publish ${{ matrix.cassandra-version }} to Registry
+#        run: |
+#          RELEASE_VERSION="${GITHUB_REF##*/}"
+#          docker buildx build --push \
+#            #--build-arg CASSANDRA_VERSION=${{ matrix.cassandra-version }} \
+#            --tag k8ssandra/cass-management-api:4.2 \
+#            --tag k8ssandra/cass-management-api:${{ matrix.cassandra-version }} \
+#            --tag k8ssandra/cass-management-api:${{ matrix.cassandra-version }}-$RELEASE_VERSION \
+#            --file cassandra-trunk/Dockerfile.ubi8 \
+#            --target cass-trunk \
+#            --platform linux/amd64 .
+#      - if: ${{ !matrix.latest }}
+#        name: Publish ${{ matrix.cassandra-version }} to Registry
+#        run: |
+#          RELEASE_VERSION="${GITHUB_REF##*/}"
+#          docker buildx build --push \
+#            #--build-arg CASSANDRA_VERSION=${{ matrix.cassandra-version }} \
+#            --tag k8ssandra/cass-management-api:${{ matrix.cassandra-version }} \
+#            --tag k8ssandra/cass-management-api:${{ matrix.cassandra-version }}-$RELEASE_VERSION \
+#            --file cassandra-trunk/Dockerfile.ubi8 \
+#            --target cass-trunk \
+#            --platform linux/amd64 .

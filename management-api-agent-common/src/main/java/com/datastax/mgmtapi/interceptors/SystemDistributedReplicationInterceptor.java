@@ -5,6 +5,9 @@
  */
 package com.datastax.mgmtapi.interceptors;
 
+import static net.bytebuddy.matcher.ElementMatchers.nameEndsWith;
+
+import com.google.common.collect.ImmutableMap;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -12,163 +15,138 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.stream.Collectors;
-
-import com.google.common.collect.ImmutableMap;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import net.bytebuddy.agent.builder.AgentBuilder;
 import net.bytebuddy.description.type.TypeDescription;
-import net.bytebuddy.dynamic.DynamicType;
 import net.bytebuddy.implementation.MethodDelegation;
 import net.bytebuddy.implementation.bind.annotation.SuperCall;
 import net.bytebuddy.matcher.ElementMatcher;
 import net.bytebuddy.matcher.ElementMatchers;
-import net.bytebuddy.utility.JavaModule;
 import org.apache.cassandra.locator.NetworkTopologyStrategy;
 import org.apache.cassandra.schema.KeyspaceMetadata;
 import org.apache.cassandra.schema.KeyspaceParams;
 import org.apache.cassandra.schema.ReplicationParams;
+import org.apache.commons.lang3.StringEscapeUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import static net.bytebuddy.matcher.ElementMatchers.nameEndsWith;
+public class SystemDistributedReplicationInterceptor {
+  private static final Logger LOGGER =
+      LoggerFactory.getLogger(SystemDistributedReplicationInterceptor.class);
+  static final String SYSTEM_DISTRIBUTED_NTS_DC_OVERRIDE_PROPERTY =
+      "cassandra.system_distributed_replication_dc_names";
+  static final String SYSTEM_DISTRIBUTED_NTS_RF_OVERRIDE_PROPERTY =
+      "cassandra.system_distributed_replication_per_dc";
+  /**
+   * This DC_RF property is used to specify different RF per DC, instead of a single RF for all DCs
+   * The format of the property value should be <dc1_name>:<dc1_rf>,<dc2_name>:<dc2_rf>,....
+   *
+   * <p>ex. cassandra.system_distributed_replication=dc1:1,dc2:3,dc3:3
+   *
+   * <p>If both this override and either of the above overrides are present, this value will take
+   * precedence.
+   */
+  static final String SYSTEM_DISTRIBUTED_NTS_DC_RF_OVERRIDE_PROPERTY =
+      "cassandra.system_distributed_replication";
 
-public class SystemDistributedReplicationInterceptor
-{
-    private static final Logger LOGGER = LoggerFactory.getLogger(SystemDistributedReplicationInterceptor.class);
-    private static final String SYSTEM_DISTRIBUTED_NTS_DC_OVERRIDE_PROPERTY = "cassandra.system_distributed_replication_dc_names";
-    private static final String SYSTEM_DISTRIBUTED_NTS_RF_OVERRIDE_PROPERTY = "cassandra.system_distributed_replication_per_dc";
-    /**
-     * This DC_RF property is used to specify different RF per DC, instead of a single RF for all DCs
-     * The format of the property value should be <dc1_name>:<dc1_rf>,<dc2_name>:<dc2_rf>,....
-     *
-     * ex.  cassandra.system_distributed_replication=dc1:1,dc2:3,dc3:3
-     *
-     * If both this override and either of the above overrides are present, this value will take
-     * precedence.
-     */
-    private static final String SYSTEM_DISTRIBUTED_NTS_DC_RF_OVERRIDE_PROPERTY = "cassandra.system_distributed_replication";
+  static Map<String, String> parseDcRfOverrides() {
+    Map<String, String> dcRfOverrides = null;
+    try {
+      if (System.getProperty(SYSTEM_DISTRIBUTED_NTS_DC_RF_OVERRIDE_PROPERTY) != null) {
+        dcRfOverrides = new HashMap<>();
+        String mappings =
+            StringEscapeUtils.unescapeJava(
+                System.getProperty(SYSTEM_DISTRIBUTED_NTS_DC_RF_OVERRIDE_PROPERTY));
 
-    private static Map<String, String> parseDcRfOverrides()
-    {
-        Map<String, String> dcRfOverrides = null;
-        try
-        {
-            if (System.getProperty(SYSTEM_DISTRIBUTED_NTS_DC_RF_OVERRIDE_PROPERTY) != null)
-            {
-                dcRfOverrides = new HashMap<>();
-                String mappings = System.getProperty(SYSTEM_DISTRIBUTED_NTS_DC_RF_OVERRIDE_PROPERTY);
-                for (String mapping : mappings.split(","))
-                {
-                    String map = mapping.trim();
-                    List<String> parts = Arrays.stream(map.split(":"))
-                            .map(String::trim)
-                            .collect(Collectors.toList());
-                    if (parts.size() != 2)
-                    {
-                        LOGGER.error("Invalid dc-rf mapping for {}: {}",
-                                SYSTEM_DISTRIBUTED_NTS_DC_RF_OVERRIDE_PROPERTY,
-                                mapping);
-                    }
-                    else {
-                        String dc = parts.get(0);
-                        Integer rf = Integer.parseInt(parts.get(1));
-                        if (rf <= 0 || rf > 5)
-                        {
-                            LOGGER.error("Invalid repliction factor specified for {}: {}",
-                                    SYSTEM_DISTRIBUTED_NTS_DC_RF_OVERRIDE_PROPERTY,
-                                    mapping);
-                        }
-                        else
-                        {
-                            dcRfOverrides.put(dc, rf.toString());
-                        }
-                    }
-                }
+        for (String mapping : mappings.split(",")) {
+          String map = mapping.trim();
+          List<String> parts =
+              Arrays.stream(map.split(":")).map(String::trim).collect(Collectors.toList());
+          if (parts.size() != 2) {
+            LOGGER.error(
+                "Invalid dc-rf mapping for {}: {}",
+                SYSTEM_DISTRIBUTED_NTS_DC_RF_OVERRIDE_PROPERTY,
+                mapping);
+          } else {
+            String dc = parts.get(0);
+            int rf = Integer.parseInt(parts.get(1));
+            if (rf <= 0 || rf > 5) {
+              LOGGER.error(
+                  "Invalid repliction factor specified for {}: {}",
+                  SYSTEM_DISTRIBUTED_NTS_DC_RF_OVERRIDE_PROPERTY,
+                  mapping);
+            } else {
+              dcRfOverrides.put(dc, Integer.toString(rf));
             }
+          }
         }
-        catch (Throwable t)
-        {
-            LOGGER.error("Error parsing system distributed replication override properties", t);
-        }
-
-        return dcRfOverrides;
+      }
+    } catch (Throwable t) {
+      LOGGER.error("Error parsing system distributed replication override properties", t);
     }
 
-    private static final Map<String, String> SYSTEM_DISTRIBUTED_NTS_OVERRIDE;
-    static
-    {
-        Integer rfOverride = null;
-        List<String> dcOverride = Collections.emptyList();
-        Map<String, String> dcRfOverrides = null;
-        Map<String, String> ntsOverride = new HashMap<>();
-        ntsOverride.put(ReplicationParams.CLASS, NetworkTopologyStrategy.class.getSimpleName());
+    return dcRfOverrides;
+  }
 
-        try
-        {
-            dcRfOverrides = parseDcRfOverrides();
-            rfOverride = Integer.getInteger(SYSTEM_DISTRIBUTED_NTS_RF_OVERRIDE_PROPERTY, null);
-            dcOverride = Arrays.stream(System.getProperty(SYSTEM_DISTRIBUTED_NTS_DC_OVERRIDE_PROPERTY, "")
-                    .split(","))
-                    .map(String::trim)
-                    .collect(Collectors.toList());
-        }
-        catch (Throwable t)
-        {
-            LOGGER.error("Error parsing system distributed replication override properties", t);
-        }
+  private static final Map<String, String> SYSTEM_DISTRIBUTED_NTS_OVERRIDE;
 
-        if (dcRfOverrides != null && !dcRfOverrides.isEmpty())
-        {
-            ntsOverride.putAll(dcRfOverrides);
-            LOGGER.info("Using override for distributed system keyspaces: {}", ntsOverride);
-        }
-        else if (rfOverride != null && !dcOverride.isEmpty())
-        {
-            //Validate reasonable defaults
-            if (rfOverride <= 0 || rfOverride > 5)
-            {
-                LOGGER.error("Invalid value for {}", SYSTEM_DISTRIBUTED_NTS_RF_OVERRIDE_PROPERTY);
-            }
-            else
-            {
-                for (String dc : dcOverride)
-                    ntsOverride.put(dc, String.valueOf(rfOverride));
+  static {
+    Integer rfOverride = null;
+    List<String> dcOverride = Collections.emptyList();
+    Map<String, String> dcRfOverrides = null;
+    Map<String, String> ntsOverride = new HashMap<>();
+    ntsOverride.put(ReplicationParams.CLASS, NetworkTopologyStrategy.class.getSimpleName());
 
-                LOGGER.info("Using override for distributed system keyspaces: {}", ntsOverride);
-            }
-        }
-
-        SYSTEM_DISTRIBUTED_NTS_OVERRIDE = ImmutableMap.copyOf(ntsOverride);
+    try {
+      dcRfOverrides = parseDcRfOverrides();
+      rfOverride = Integer.getInteger(SYSTEM_DISTRIBUTED_NTS_RF_OVERRIDE_PROPERTY, null);
+      dcOverride =
+          Arrays.stream(
+                  StringEscapeUtils.unescapeJava(
+                          System.getProperty(SYSTEM_DISTRIBUTED_NTS_DC_OVERRIDE_PROPERTY, ""))
+                      .split(","))
+              .map(String::trim)
+              .collect(Collectors.toList());
+    } catch (Throwable t) {
+      LOGGER.error("Error parsing system distributed replication override properties", t);
     }
 
+    if (dcRfOverrides != null && !dcRfOverrides.isEmpty()) {
+      ntsOverride.putAll(dcRfOverrides);
+      LOGGER.info("Using override for distributed system keyspaces: {}", ntsOverride);
+    } else if (rfOverride != null && !dcOverride.isEmpty()) {
+      // Validate reasonable defaults
+      if (rfOverride <= 0 || rfOverride > 5) {
+        LOGGER.error("Invalid value for {}", SYSTEM_DISTRIBUTED_NTS_RF_OVERRIDE_PROPERTY);
+      } else {
+        for (String dc : dcOverride) ntsOverride.put(dc, String.valueOf(rfOverride));
 
-    public static ElementMatcher<? super TypeDescription> type()
-    {
-        return nameEndsWith(".AuthKeyspace")
-                .or(nameEndsWith(".TraceKeyspace"))
-                .or(nameEndsWith(".SystemDistributedKeyspace"));
+        LOGGER.info("Using override for distributed system keyspaces: {}", ntsOverride);
+      }
     }
 
-    public static AgentBuilder.Transformer transformer()
-    {
-        return new AgentBuilder.Transformer()
-        {
-            @Override
-            public DynamicType.Builder<?> transform(DynamicType.Builder<?> builder, TypeDescription typeDescription, ClassLoader classLoader, JavaModule javaModule)
-            {
-                return builder.method(ElementMatchers.named("metadata")).intercept(MethodDelegation.to(SystemDistributedReplicationInterceptor.class));
-            }
-        };
-    }
+    SYSTEM_DISTRIBUTED_NTS_OVERRIDE = ImmutableMap.copyOf(ntsOverride);
+  }
 
-    public static KeyspaceMetadata intercept(@SuperCall Callable<KeyspaceMetadata> zuper) throws Exception
-    {
-        KeyspaceMetadata ksm = zuper.call();
+  public static ElementMatcher<? super TypeDescription> type() {
+    return nameEndsWith(".AuthKeyspace")
+        .or(nameEndsWith(".TraceKeyspace"))
+        .or(nameEndsWith(".SystemDistributedKeyspace"));
+  }
 
-        if (SYSTEM_DISTRIBUTED_NTS_OVERRIDE.size() > 1) //1 because we add class key
-            return ksm.withSwapped(KeyspaceParams.create(true, SYSTEM_DISTRIBUTED_NTS_OVERRIDE));
+  public static AgentBuilder.Transformer transformer() {
+    return (builder, typeDescription, classLoader, javaModule, protectionDomain) ->
+        builder
+            .method(ElementMatchers.named("metadata"))
+            .intercept(MethodDelegation.to(SystemDistributedReplicationInterceptor.class));
+  }
 
-        return ksm;
-    }
+  public static KeyspaceMetadata intercept(@SuperCall Callable<KeyspaceMetadata> zuper)
+      throws Exception {
+    KeyspaceMetadata ksm = zuper.call();
+
+    if (SYSTEM_DISTRIBUTED_NTS_OVERRIDE.size() > 1) // 1 because we add class key
+    return ksm.withSwapped(KeyspaceParams.create(true, SYSTEM_DISTRIBUTED_NTS_OVERRIDE));
+
+    return ksm;
+  }
 }

@@ -246,6 +246,19 @@ public class NodeOpsProvider {
     ShimLoader.instance.get().getStorageService().setCompactionThroughputMbPerSec(value);
   }
 
+  @Rpc(name = "setStreamThroughputMbitPerSec")
+  public void setStreamThroughputMbitPerSec(@RpcParam(name = "value") int value) {
+    logger.debug("Setting stream throughput to {}", value);
+    // Using old name for compatibility
+    ShimLoader.instance.get().getStorageService().setStreamThroughputMbPerSec(value);
+  }
+
+  @Rpc(name = "getStreamThroughputMbitPerSec")
+  public int getStreamThroughputMbitPerSec() {
+    // Using old name for compatibility
+    return ShimLoader.instance.get().getStorageService().getStreamThroughputMbPerSec();
+  }
+
   @Rpc(name = "assassinate")
   public void assassinate(@RpcParam(name = "address") String address) throws UnknownHostException {
     logger.debug("Assassinating {}", address);

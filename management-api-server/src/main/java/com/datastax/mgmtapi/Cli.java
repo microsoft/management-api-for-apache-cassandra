@@ -235,7 +235,6 @@ public class Cli implements Runnable {
 
           System.exit(1);
         }
-      }
 
         try {
           server.start();

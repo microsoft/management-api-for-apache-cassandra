@@ -375,6 +375,7 @@ public class CassandraAPI3x implements CassandraAPI {
       logger.error("Error getting value from thread pool metric");
       throw e;
     }
+  }
 
   @Override
   public StorageService getStorageService() {

@@ -54,8 +54,6 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.apache.http.HttpStatus;
 import org.apache.http.client.utils.URIBuilder;
 import org.assertj.core.util.Lists;
-import org.jboss.resteasy.core.messagebody.ReaderUtility;
-import org.jboss.resteasy.core.messagebody.WriterUtility;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;

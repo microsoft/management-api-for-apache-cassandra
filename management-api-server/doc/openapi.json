@@ -213,51 +213,8 @@
           "200" : {
             "content" : {
               "application/json" : {
-                "example" : {
-                  "entity" : [ {
-                    "DC" : "datacenter1",
-                    "ENDPOINT_IP" : "172.17.0.2",
-                    "HOST_ID" : "5d2318b0-cfec-4697-8ed2-014b5f434ae8",
-                    "IS_ALIVE" : "true",
-                    "LOAD" : "135527.0",
-                    "NATIVE_ADDRESS_AND_PORT" : "172.17.0.2:9042",
-                    "NET_VERSION" : "12",
-                    "PARTITIONER" : "org.apache.cassandra.dht.Murmur3Partitioner",
-                    "RACK" : "rack1",
-                    "RELEASE_VERSION" : "4.0.1",
-                    "RPC_ADDRESS" : "172.17.0.2",
-                    "RPC_READY" : "true",
-                    "SCHEMA" : "2207c2a9-f598-3971-986b-2926e09e239d",
-                    "SSTABLE_VERSIONS" : "big-nb",
-                    "STATUS" : "NORMAL,-2444908528344618126",
-                    "STATUS_WITH_PORT" : "NORMAL,-2444908528344618126",
-                    "TOKENS" : "-2088271209278749360,-3055635452357284858,-4299155458037876832,-498266656764850722,-5378528265485478489,-6114443958196372130,-7190199839421951670,-8007871772034302464,-9025723176776729480,1120756638932192574,2098902091448306650,3877536392271893778,4973578292506832067,6064875403199044326,6909252050690206084,8349520280592789322"
-                  } ],
-                  "variant" : {
-                    "language" : null,
-                    "mediaType" : {
-                      "type" : "application",
-                      "subtype" : "json",
-                      "parameters" : { },
-                      "wildcardType" : false,
-                      "wildcardSubtype" : false
-                    },
-                    "encoding" : null,
-                    "languageString" : null
-                  },
-                  "annotations" : [ ],
-                  "mediaType" : {
-                    "type" : "application",
-                    "subtype" : "json",
-                    "parameters" : { },
-                    "wildcardType" : false,
-                    "wildcardSubtype" : false
-                  },
-                  "language" : null,
-                  "encoding" : null
-                },
                 "schema" : {
-                  "type" : "string"
+                  "$ref" : "#/components/schemas/EndpointStates"
                 }
               }
             },
@@ -317,7 +274,7 @@
                 }
               }
             },
-            "description" : "Cassandra version'"
+            "description" : "Cassandra version"
           }
         },
         "summary" : "Returns the Cassandra release version"
@@ -355,7 +312,10 @@
           "200" : {
             "content" : {
               "text/plain" : {
-                "example" : "OK"
+                "example" : "OK",
+                "schema" : {
+                  "type" : "string"
+                }
               }
             },
             "description" : "Role created"
@@ -363,7 +323,10 @@
           "400" : {
             "content" : {
               "text/plain" : {
-                "example" : "Username is empty"
+                "example" : "Username is empty",
+                "schema" : {
+                  "type" : "string"
+                }
               }
             },
             "description" : "Username and/or password is empty"
@@ -422,7 +385,13 @@
           "200" : {
             "content" : {
               "application/json" : {
-                "example" : [ "system_schema", "system", "system_auth", "system_distributed", "system_traces" ]
+                "example" : [ "system_schema", "system", "system_auth", "system_distributed", "system_traces" ],
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "type" : "string"
+                  }
+                }
               }
             },
             "description" : "List of Keyspaces"
@@ -447,7 +416,10 @@
           "200" : {
             "content" : {
               "text/plain" : {
-                "example" : "OK"
+                "example" : "OK",
+                "schema" : {
+                  "type" : "string"
+                }
               }
             },
             "description" : "Keyspace Replication Settings altered successfully"
@@ -455,7 +427,10 @@
           "400" : {
             "content" : {
               "text/plain" : {
-                "example" : "Altering Keyspace failed. Non-empty 'keyspace_name' must be provided"
+                "example" : "Altering Keyspace failed. Non-empty 'keyspace_name' must be provided",
+                "schema" : {
+                  "type" : "string"
+                }
               }
             },
             "description" : "Keyspace name or Replication Settings not provided"
@@ -508,7 +483,10 @@
           "200" : {
             "content" : {
               "text/plain" : {
-                "example" : "OK"
+                "example" : "OK",
+                "schema" : {
+                  "type" : "string"
+                }
               }
             },
             "description" : "Keyspace created successfully"
@@ -516,7 +494,10 @@
           "400" : {
             "content" : {
               "text/plain" : {
-                "example" : "Keyspace creation failed. Non-empty 'keyspace_name' must be provided"
+                "example" : "Keyspace creation failed. Non-empty 'keyspace_name' must be provided",
+                "schema" : {
+                  "type" : "string"
+                }
               }
             },
             "description" : "Keyspace name or Replication Settings not provided"
@@ -545,7 +526,10 @@
           "200" : {
             "content" : {
               "text/plain" : {
-                "example" : "OK"
+                "example" : "OK",
+                "schema" : {
+                  "type" : "string"
+                }
               }
             },
             "description" : "SSTables loaded successfully"
@@ -553,7 +537,10 @@
           "400" : {
             "content" : {
               "text/plain" : {
-                "example" : "Must provide a keyspace name"
+                "example" : "Must provide a keyspace name",
+                "schema" : {
+                  "type" : "string"
+                }
               }
             },
             "description" : "Keyspace name or Table name not provided"
@@ -580,6 +567,9 @@
                 "example" : {
                   "class" : "org.apache.cassandra.locator.SimpleStrategy",
                   "replication_factor" : "2"
+                },
+                "schema" : {
+                  "type" : "string"
                 }
               }
             },
@@ -588,7 +578,10 @@
           "400" : {
             "content" : {
               "text/plain" : {
-                "example" : "Get keyspace replication failed. Non-empty 'keyspaceName' must be provided"
+                "example" : "Get keyspace replication failed. Non-empty 'keyspaceName' must be provided",
+                "schema" : {
+                  "type" : "string"
+                }
               }
             },
             "description" : "Keyspace name not provided"
@@ -596,7 +589,10 @@
           "404" : {
             "content" : {
               "text/plain" : {
-                "example" : "Get keyspace replication failed. Keyspace 'my_keyspace' does not exist."
+                "example" : "Get keyspace replication failed. Keyspace 'my_keyspace' does not exist.",
+                "schema" : {
+                  "type" : "string"
+                }
               }
             },
             "description" : "Keyspace name not found"
@@ -1015,49 +1011,12 @@
           "200" : {
             "content" : {
               "application/json" : {
-                "example" : {
-                  "entity" : [ {
-                    "Column family name" : "size_estimates",
-                    "Keyspace name" : "system",
-                    "Size on disk" : "13 bytes",
-                    "Snapshot name" : "truncated-1639687082845-size_estimates",
-                    "True size" : "0 bytes"
-                  }, {
-                    "Column family name" : "table_estimates",
-                    "Keyspace name" : "system",
-                    "Size on disk" : "13 bytes",
-                    "Snapshot name" : "truncated-1639687082982-table_estimates",
-                    "True size" : "0 bytes"
-                  } ],
-                  "variant" : {
-                    "language" : null,
-                    "mediaType" : {
-                      "type" : "application",
-                      "subtype" : "json",
-                      "parameters" : { },
-                      "wildcardType" : false,
-                      "wildcardSubtype" : false
-                    },
-                    "encoding" : null,
-                    "languageString" : null
-                  },
-                  "annotations" : [ ],
-                  "mediaType" : {
-                    "type" : "application",
-                    "subtype" : "json",
-                    "parameters" : { },
-                    "wildcardType" : false,
-                    "wildcardSubtype" : false
-                  },
-                  "language" : null,
-                  "encoding" : null
-                },
                 "schema" : {
-                  "type" : "string"
+                  "$ref" : "#/components/schemas/SnapshotDetails"
                 }
               }
             },
-            "description" : "Cassandra snapshot details"
+            "description" : "Cassandra snapshot details. Use 'null' values for query parameters to exclude result filtering against the parameter."
           }
         },
         "summary" : "Retrieve snapshot details"
@@ -1107,33 +1066,8 @@
           "200" : {
             "content" : {
               "application/json" : {
-                "example" : {
-                  "entity" : [ ],
-                  "variant" : {
-                    "language" : null,
-                    "mediaType" : {
-                      "type" : "application",
-                      "subtype" : "json",
-                      "parameters" : { },
-                      "wildcardType" : false,
-                      "wildcardSubtype" : false
-                    },
-                    "encoding" : null,
-                    "languageString" : null
-                  },
-                  "annotations" : [ ],
-                  "mediaType" : {
-                    "type" : "application",
-                    "subtype" : "json",
-                    "parameters" : { },
-                    "wildcardType" : false,
-                    "wildcardSubtype" : false
-                  },
-                  "language" : null,
-                  "encoding" : null
-                },
                 "schema" : {
-                  "type" : "string"
+                  "$ref" : "#/components/schemas/StreamingInfo"
                 }
               }
             },
@@ -1177,7 +1111,13 @@
           "200" : {
             "content" : {
               "application/json" : {
-                "example" : [ "table_1", "table_2" ]
+                "example" : [ "table_1", "table_2" ],
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "type" : "string"
+                  }
+                }
               }
             },
             "description" : "Table list"
@@ -1185,7 +1125,10 @@
           "400" : {
             "content" : {
               "text/plain" : {
-                "example" : "List tables failed. Non-empty 'keyspaceName' must be provided"
+                "example" : "List tables failed. Non-empty 'keyspaceName' must be provided",
+                "schema" : {
+                  "type" : "string"
+                }
               }
             },
             "description" : "Keyspace name not provided"
@@ -1210,7 +1153,10 @@
           "200" : {
             "content" : {
               "text/plain" : {
-                "example" : "OK"
+                "example" : "OK",
+                "schema" : {
+                  "type" : "string"
+                }
               }
             },
             "description" : "Table compaction successful"
@@ -1218,7 +1164,10 @@
           "400" : {
             "content" : {
               "text/plain" : {
-                "example" : "Invalid option combination: Can not use split-output here"
+                "example" : "Invalid option combination: Can not use split-output here",
+                "schema" : {
+                  "type" : "string"
+                }
               }
             },
             "description" : "Invalid table compaction request"
@@ -1243,7 +1192,10 @@
           "200" : {
             "content" : {
               "text/plain" : {
-                "example" : "OK"
+                "example" : "OK",
+                "schema" : {
+                  "type" : "string"
+                }
               }
             },
             "description" : "Table creation successful"
@@ -1251,7 +1203,10 @@
           "400" : {
             "content" : {
               "text/plain" : {
-                "example" : "Table creation failed: some failure message"
+                "example" : "Table creation failed: some failure message",
+                "schema" : {
+                  "type" : "string"
+                }
               }
             },
             "description" : "Table creation failed"
@@ -1276,7 +1231,10 @@
           "200" : {
             "content" : {
               "text/plain" : {
-                "example" : "OK"
+                "example" : "OK",
+                "schema" : {
+                  "type" : "string"
+                }
               }
             },
             "description" : "Table flush successful"
@@ -1308,7 +1266,10 @@
           "200" : {
             "content" : {
               "text/plain" : {
-                "example" : "OK"
+                "example" : "OK",
+                "schema" : {
+                  "type" : "string"
+                }
               }
             },
             "description" : "Table garbage collection successful"
@@ -1316,7 +1277,10 @@
           "400" : {
             "content" : {
               "text/plain" : {
-                "example" : "tombstoneOption must be either ROW or CELL"
+                "example" : "tombstoneOption must be either ROW or CELL",
+                "schema" : {
+                  "type" : "string"
+                }
               }
             },
             "description" : "Invalid table garbage collection request"
@@ -1341,7 +1305,10 @@
           "200" : {
             "content" : {
               "text/plain" : {
-                "example" : "OK"
+                "example" : "OK",
+                "schema" : {
+                  "type" : "string"
+                }
               }
             },
             "description" : "Table scrub successful"
@@ -1373,7 +1340,10 @@
           "200" : {
             "content" : {
               "text/plain" : {
-                "example" : "OK"
+                "example" : "OK",
+                "schema" : {
+                  "type" : "string"
+                }
               }
             },
             "description" : "SSTable upgrade successful"
@@ -1428,7 +1398,10 @@
           "200" : {
             "content" : {
               "text/plain" : {
-                "example" : "OK"
+                "example" : "OK",
+                "schema" : {
+                  "type" : "string"
+                }
               }
             },
             "description" : "Service is running"
@@ -1444,7 +1417,10 @@
           "200" : {
             "content" : {
               "text/plain" : {
-                "example" : "OK"
+                "example" : "OK",
+                "schema" : {
+                  "type" : "string"
+                }
               }
             },
             "description" : "Service is ready to handle requests"
@@ -1547,6 +1523,45 @@
         "summary" : "Rebuild data by streaming data from other nodes. This operation returns immediately with a job id."
       }
     },
+    "/api/v1/ops/node/repair" : {
+      "post" : {
+        "operationId" : "repair_1",
+        "requestBody" : {
+          "content" : {
+            "*/*" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RepairRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "202" : {
+            "content" : {
+              "text/plain" : {
+                "example" : "repair-1234567",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            },
+            "description" : "Job ID for successfully scheduled Cassandra repair request"
+          },
+          "400" : {
+            "content" : {
+              "text/plain" : {
+                "example" : "keyspaceName must be specified",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            },
+            "description" : "Repair request missing Keyspace name"
+          }
+        },
+        "summary" : "Execute a nodetool repair operation"
+      }
+    },
     "/api/v1/ops/node/schema/versions" : {
       "get" : {
         "operationId" : "getSchemaVersions",
@@ -1554,13 +1569,56 @@
           "200" : {
             "content" : {
               "application/json" : {
-                "example" : "{2207c2a9-f598-3971-986b-2926e09e239d: [10.244.1.4, 10.244.2.3, 10.244.3.3]}"
+                "example" : "{2207c2a9-f598-3971-986b-2926e09e239d: [10.244.1.4, 10.244.2.3, 10.244.3.3]}",
+                "schema" : {
+                  "type" : "string"
+                }
               }
             },
             "description" : "Gets the schema versions for each node. Useful for checking schema agreement"
           }
         },
         "summary" : "Get schema versions."
+      }
+    },
+    "/api/v1/ops/tables" : {
+      "get" : {
+        "operationId" : "listTablesV1",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "keyspaceName",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/Table"
+                  }
+                }
+              }
+            },
+            "description" : "Table list"
+          },
+          "400" : {
+            "content" : {
+              "text/plain" : {
+                "example" : "List tables failed. Non-empty 'keyspaceName' must be provided",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            },
+            "description" : "Keyspace name not provided"
+          }
+        },
+        "summary" : "List the table names in the given keyspace"
       }
     },
     "/api/v1/ops/tables/compact" : {
@@ -1597,6 +1655,112 @@
           }
         },
         "summary" : "Force a (major) compaction on one or more tables or user-defined compaction on given SSTables"
+      }
+    },
+    "/api/v1/ops/tables/compactions" : {
+      "get" : {
+        "operationId" : "getCompactions",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/Compaction"
+                  }
+                }
+              }
+            },
+            "description" : "Compactions"
+          }
+        },
+        "summary" : "Returns active compactions"
+      }
+    },
+    "/api/v1/ops/tables/flush" : {
+      "post" : {
+        "operationId" : "flush_1",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/KeyspaceRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "202" : {
+            "content" : {
+              "text/plain" : {
+                "example" : "d69d1d95-9348-4460-95d2-ae342870fade",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            },
+            "description" : "Job ID for table flush process"
+          },
+          "400" : {
+            "content" : {
+              "text/plain" : {
+                "example" : "keyspace sys-tem does not exists",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            },
+            "description" : "Invalid flush request"
+          }
+        },
+        "summary" : "Flush one or more tables"
+      }
+    },
+    "/api/v1/ops/tables/garbagecollect" : {
+      "post" : {
+        "operationId" : "garbageCollect_1",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "tombstoneOption",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/KeyspaceRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "202" : {
+            "content" : {
+              "text/plain" : {
+                "example" : "d69d1d95-9348-4460-95d2-ae342870fade",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            },
+            "description" : "Job ID for table garbage collection process"
+          },
+          "400" : {
+            "content" : {
+              "text/plain" : {
+                "example" : "tombstoneOption must be either ROW or CELL",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            },
+            "description" : "Invalid table garbage collection request"
+          }
+        },
+        "summary" : "Remove deleted data from one or more tables"
       }
     },
     "/api/v1/ops/tables/scrub" : {
@@ -1661,6 +1825,111 @@
         },
         "summary" : "Rewrite sstables (for the requested tables) that are not on the current version (thus upgrading them to said current version). This operation is asynchronous and returns immediately."
       }
+    },
+    "/api/v2/repairs" : {
+      "delete" : {
+        "operationId" : "deleteRepairsV2",
+        "responses" : {
+          "202" : {
+            "content" : {
+              "application/json" : {
+                "example" : "Accepted",
+                "schema" : {
+                  "$ref" : "#/components/schemas/RepairRequestResponse"
+                }
+              }
+            },
+            "description" : "Cancel repairs Successfully requested"
+          }
+        },
+        "summary" : "Cancel all repairs"
+      },
+      "put" : {
+        "operationId" : "putRepairV2",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RepairRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "202" : {
+            "content" : {
+              "application/json" : {
+                "example" : "Accepted",
+                "schema" : {
+                  "$ref" : "#/components/schemas/RepairRequestResponse"
+                }
+              }
+            },
+            "description" : "Repair Successfully requested"
+          },
+          "400" : {
+            "content" : {
+              "text/plain" : {
+                "example" : "keyspace must be specified",
+                "schema" : {
+                  "type" : "string",
+                  "enum" : [ "OK", "Created", "Accepted", "No Content", "Reset Content", "Partial Content", "Moved Permanently", "Found", "See Other", "Not Modified", "Use Proxy", "Temporary Redirect", "Bad Request", "Unauthorized", "Payment Required", "Forbidden", "Not Found", "Method Not Allowed", "Not Acceptable", "Proxy Authentication Required", "Request Timeout", "Conflict", "Gone", "Length Required", "Precondition Failed", "Request Entity Too Large", "Request-URI Too Long", "Unsupported Media Type", "Requested Range Not Satisfiable", "Expectation Failed", "Precondition Required", "Too Many Requests", "Request Header Fields Too Large", "Internal Server Error", "Not Implemented", "Bad Gateway", "Service Unavailable", "Gateway Timeout", "HTTP Version Not Supported", "Network Authentication Required" ]
+                }
+              }
+            },
+            "description" : "Repair request missing Keyspace name"
+          },
+          "500" : {
+            "content" : {
+              "text/plain" : {
+                "example" : "internal error, we did not receive the expected repair ID from Cassandra.",
+                "schema" : {
+                  "type" : "string",
+                  "enum" : [ "OK", "Created", "Accepted", "No Content", "Reset Content", "Partial Content", "Moved Permanently", "Found", "See Other", "Not Modified", "Use Proxy", "Temporary Redirect", "Bad Request", "Unauthorized", "Payment Required", "Forbidden", "Not Found", "Method Not Allowed", "Not Acceptable", "Proxy Authentication Required", "Request Timeout", "Conflict", "Gone", "Length Required", "Precondition Failed", "Request Entity Too Large", "Request-URI Too Long", "Unsupported Media Type", "Requested Range Not Satisfiable", "Expectation Failed", "Precondition Required", "Too Many Requests", "Request Header Fields Too Large", "Internal Server Error", "Not Implemented", "Bad Gateway", "Service Unavailable", "Gateway Timeout", "HTTP Version Not Supported", "Network Authentication Required" ]
+                }
+              }
+            },
+            "description" : "internal error, we did not receive the expected repair ID from Cassandra."
+          }
+        },
+        "summary" : "Initiate a new repair"
+      }
+    },
+    "/api/v2/tokens/rangetoendpoint" : {
+      "get" : {
+        "operationId" : "getRangeToEndpointMapV2",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "keyspaceName",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TokenRangeToEndpointResponse"
+                }
+              }
+            },
+            "description" : "Token range retrieval was successful"
+          },
+          "404" : {
+            "content" : {
+              "text/plain" : {
+                "example" : "keyspace not found",
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            },
+            "description" : "Keyspace not found"
+          }
+        },
+        "summary" : "Retrieve a mapping of Token ranges to endpoints"
+      }
     }
   },
   "components" : {
@@ -1722,6 +1991,52 @@
         },
         "required" : [ "keyspace_name", "split_output", "user_defined" ]
       },
+      "Compaction" : {
+        "type" : "object",
+        "properties" : {
+          "columnfamily" : {
+            "type" : "string"
+          },
+          "compactionId" : {
+            "type" : "string"
+          },
+          "completed" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "keyspace" : {
+            "type" : "string"
+          },
+          "operationId" : {
+            "type" : "string"
+          },
+          "operationType" : {
+            "type" : "string"
+          },
+          "sstables" : {
+            "type" : "string"
+          },
+          "targetDirectory" : {
+            "type" : "string"
+          },
+          "taskType" : {
+            "type" : "string"
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "unit" : {
+            "type" : "string"
+          }
+        }
+      },
       "CreateOrAlterKeyspaceRequest" : {
         "type" : "object",
         "properties" : {
@@ -1761,6 +2076,39 @@
         },
         "required" : [ "columns", "keyspace_name", "table_name" ]
       },
+      "EndpointStates" : {
+        "type" : "object",
+        "properties" : {
+          "annotations" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "encoding" : {
+            "type" : "string"
+          },
+          "entity" : {
+            "type" : "array",
+            "items" : {
+              "type" : "object",
+              "additionalProperties" : {
+                "type" : "string"
+              }
+            }
+          },
+          "language" : {
+            "type" : "string"
+          },
+          "mediaType" : {
+            "$ref" : "#/components/schemas/MediaType"
+          },
+          "variant" : {
+            "$ref" : "#/components/schemas/Variant"
+          }
+        },
+        "required" : [ "entity" ]
+      },
       "FeatureSet" : {
         "type" : "object",
         "properties" : {
@@ -1771,7 +2119,7 @@
             "type" : "array",
             "items" : {
               "type" : "string",
-              "enum" : [ "ASYNC_SSTABLE_TASKS", "FULL_QUERY_LOGGING", "REBUILD", "ASYNC_UPGRADE_SSTABLE_TASK", "ASYNC_COMPACTION_TASKS", "ASYNC_SCRUB_TASK", "ASYNC_MOVE_TASK" ]
+              "enum" : [ "ASYNC_SSTABLE_TASKS", "FULL_QUERY_LOGGING", "REBUILD", "ASYNC_UPGRADE_SSTABLE_TASK", "ASYNC_COMPACTION_TASKS", "ASYNC_SCRUB_TASK", "ASYNC_MOVE_TASK", "ASYNC_GC_TASK", "ASYNC_FLUSH_TASK" ]
             }
           },
           "mgmt_version" : {
@@ -1795,6 +2143,12 @@
           "status" : {
             "type" : "string",
             "enum" : [ "ERROR", "COMPLETED", "WAITING" ]
+          },
+          "status_changes" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/StatusChange"
+            }
           },
           "submit_time" : {
             "type" : "integer",
@@ -1824,14 +2178,57 @@
         },
         "required" : [ "jobs", "keyspace_name", "tables" ]
       },
+      "MediaType" : {
+        "type" : "object",
+        "properties" : {
+          "parameters" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string"
+            }
+          },
+          "subtype" : {
+            "type" : "string"
+          },
+          "type" : {
+            "type" : "string"
+          },
+          "wildcardSubtype" : {
+            "type" : "string"
+          },
+          "wildcardType" : {
+            "type" : "string"
+          }
+        }
+      },
       "RepairRequest" : {
         "type" : "object",
         "properties" : {
-          "full" : {
+          "associated_tokens" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/RingRange"
+            }
+          },
+          "datacenters" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "full_repair" : {
             "type" : "boolean"
           },
-          "keyspace_name" : {
+          "keyspace" : {
             "type" : "string"
+          },
+          "repair_parallelism" : {
+            "type" : "string",
+            "enum" : [ "sequential", "parallel", "dc_parallel" ]
+          },
+          "repair_thread_count" : {
+            "type" : "integer",
+            "format" : "int32"
           },
           "tables" : {
             "type" : "array",
@@ -1840,7 +2237,16 @@
             }
           }
         },
-        "required" : [ "keyspace_name" ]
+        "required" : [ "keyspace" ]
+      },
+      "RepairRequestResponse" : {
+        "type" : "object",
+        "properties" : {
+          "repair_id" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "repair_id" ]
       },
       "ReplicationSetting" : {
         "type" : "object",
@@ -1854,6 +2260,20 @@
           }
         },
         "required" : [ "dc_name", "replication_factor" ]
+      },
+      "RingRange" : {
+        "type" : "object",
+        "properties" : {
+          "end" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "start" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "end", "start" ]
       },
       "ScrubRequest" : {
         "type" : "object",
@@ -1886,6 +2306,108 @@
         },
         "required" : [ "check_data", "disable_snapshot", "jobs", "keyspace_name", "reinsert_overflowed_ttl", "skip_corrupted", "tables" ]
       },
+      "SnapshotDetails" : {
+        "type" : "object",
+        "properties" : {
+          "annotations" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "encoding" : {
+            "type" : "string"
+          },
+          "entity" : {
+            "type" : "array",
+            "items" : {
+              "type" : "object",
+              "additionalProperties" : {
+                "type" : "string"
+              }
+            }
+          },
+          "language" : {
+            "type" : "string"
+          },
+          "mediaType" : {
+            "$ref" : "#/components/schemas/MediaType"
+          },
+          "variant" : {
+            "$ref" : "#/components/schemas/Variant"
+          }
+        },
+        "required" : [ "entity" ]
+      },
+      "StatusChange" : {
+        "type" : "object",
+        "properties" : {
+          "change_time" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "message" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          }
+        }
+      },
+      "StreamingInfo" : {
+        "type" : "object",
+        "properties" : {
+          "annotations" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "encoding" : {
+            "type" : "string"
+          },
+          "entity" : {
+            "type" : "array",
+            "items" : {
+              "type" : "object",
+              "additionalProperties" : {
+                "type" : "array",
+                "items" : {
+                  "type" : "object",
+                  "additionalProperties" : {
+                    "type" : "string"
+                  }
+                }
+              }
+            }
+          },
+          "language" : {
+            "type" : "string"
+          },
+          "mediaType" : {
+            "$ref" : "#/components/schemas/MediaType"
+          },
+          "variant" : {
+            "$ref" : "#/components/schemas/Variant"
+          }
+        },
+        "required" : [ "entity" ]
+      },
+      "Table" : {
+        "type" : "object",
+        "properties" : {
+          "compaction" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string"
+            }
+          },
+          "name" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "name" ]
+      },
       "TakeSnapshotRequest" : {
         "type" : "object",
         "properties" : {
@@ -1909,6 +2431,54 @@
           },
           "table_name" : {
             "type" : "string"
+          }
+        }
+      },
+      "TokenRangeToEndpointResponse" : {
+        "type" : "object",
+        "properties" : {
+          "token_range_to_endpoints" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/TokenRangeToEndpoints"
+            }
+          }
+        },
+        "required" : [ "token_range_to_endpoints" ]
+      },
+      "TokenRangeToEndpoints" : {
+        "type" : "object",
+        "properties" : {
+          "endpoints" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "tokens" : {
+            "type" : "array",
+            "items" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          }
+        },
+        "required" : [ "endpoints", "tokens" ]
+      },
+      "Variant" : {
+        "type" : "object",
+        "properties" : {
+          "encoding" : {
+            "type" : "string"
+          },
+          "language" : {
+            "type" : "string"
+          },
+          "languageString" : {
+            "type" : "string"
+          },
+          "mediaType" : {
+            "$ref" : "#/components/schemas/MediaType"
           }
         }
       }

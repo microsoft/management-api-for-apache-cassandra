@@ -5,23 +5,23 @@
  */
 package com.datastax.mgmtapi.resources;
 
-import static com.datastax.mgmtapi.resources.NodeOpsResources.handle;
-
-import com.datastax.mgmtapi.CqlService;
 import com.datastax.mgmtapi.ManagementApplication;
+import com.datastax.mgmtapi.resources.common.BaseResources;
 import com.datastax.mgmtapi.resources.models.CompactRequest;
 import com.datastax.mgmtapi.resources.models.CreateTableRequest;
 import com.datastax.mgmtapi.resources.models.KeyspaceRequest;
 import com.datastax.mgmtapi.resources.models.ScrubRequest;
 import com.datastax.oss.driver.api.core.cql.ResultSet;
-import com.datastax.oss.driver.api.core.cql.Row;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.GET;
 import javax.ws.rs.POST;
@@ -33,19 +33,12 @@ import javax.ws.rs.core.Response;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.http.HttpStatus;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 @Path("/api/v0/ops/tables")
-public class TableOpsResources {
-  private static final Logger logger = LoggerFactory.getLogger(TableOpsResources.class);
-
-  private final ManagementApplication app;
-  private final CqlService cqlService;
+public class TableOpsResources extends BaseResources {
 
   public TableOpsResources(ManagementApplication application) {
-    this.app = application;
-    this.cqlService = application.cqlService;
+    super(application);
   }
 
   @POST
@@ -55,7 +48,11 @@ public class TableOpsResources {
   @ApiResponse(
       responseCode = "200",
       description = "Table scrub successful",
-      content = @Content(mediaType = MediaType.TEXT_PLAIN, examples = @ExampleObject(value = "OK")))
+      content =
+          @Content(
+              mediaType = MediaType.TEXT_PLAIN,
+              schema = @Schema(implementation = String.class),
+              examples = @ExampleObject(value = "OK")))
   @Operation(summary = "Scrub (rebuild sstables for) one or more tables", operationId = "scrub")
   public Response scrub(ScrubRequest scrubRequest) {
     return handle(
@@ -70,7 +67,7 @@ public class TableOpsResources {
             keyspaceName = "ALL";
           }
 
-          cqlService.executePreparedStatement(
+          app.cqlService.executePreparedStatement(
               app.dbUnixSocketFile,
               "CALL NodeOps.scrub(?, ?, ?, ?, ?, ?, ?, ?)",
               scrubRequest.disableSnapshot,
@@ -93,7 +90,11 @@ public class TableOpsResources {
   @ApiResponse(
       responseCode = "200",
       description = "SSTable upgrade successful",
-      content = @Content(mediaType = MediaType.TEXT_PLAIN, examples = @ExampleObject(value = "OK")))
+      content =
+          @Content(
+              mediaType = MediaType.TEXT_PLAIN,
+              schema = @Schema(implementation = String.class),
+              examples = @ExampleObject(value = "OK")))
   @Operation(
       summary =
           "Rewrite sstables (for the requested tables) that are not on the current version (thus upgrading them to said current version)",
@@ -113,7 +114,7 @@ public class TableOpsResources {
             keyspaceName = "ALL";
           }
 
-          cqlService.executePreparedStatement(
+          app.cqlService.executePreparedStatement(
               app.dbUnixSocketFile,
               "CALL NodeOps.upgradeSSTables(?, ?, ?, ?, ?)",
               keyspaceName,
@@ -133,13 +134,18 @@ public class TableOpsResources {
   @ApiResponse(
       responseCode = "200",
       description = "Table compaction successful",
-      content = @Content(mediaType = MediaType.TEXT_PLAIN, examples = @ExampleObject(value = "OK")))
+      content =
+          @Content(
+              mediaType = MediaType.TEXT_PLAIN,
+              schema = @Schema(implementation = String.class),
+              examples = @ExampleObject(value = "OK")))
   @ApiResponse(
       responseCode = "400",
       description = "Invalid table compaction request",
       content =
           @Content(
               mediaType = MediaType.TEXT_PLAIN,
+              schema = @Schema(implementation = String.class),
               examples =
                   @ExampleObject(
                       value = "Invalid option combination: Can not use split-output here")))
@@ -175,7 +181,7 @@ public class TableOpsResources {
               }
 
               String userDefinedFiles = String.join(",", compactRequest.userDefinedFiles);
-              cqlService.executePreparedStatement(
+              app.cqlService.executePreparedStatement(
                   app.dbUnixSocketFile,
                   "CALL NodeOps.forceUserDefinedCompaction(?, ?)",
                   userDefinedFiles,
@@ -197,7 +203,7 @@ public class TableOpsResources {
           }
 
           if (tokenProvided) {
-            cqlService.executePreparedStatement(
+            app.cqlService.executePreparedStatement(
                 app.dbUnixSocketFile,
                 "CALL NodeOps.forceKeyspaceCompactionForTokenRange(?, ?, ?, ?, ?)",
                 keyspaceName,
@@ -206,7 +212,7 @@ public class TableOpsResources {
                 tables,
                 false);
           } else {
-            cqlService.executePreparedStatement(
+            app.cqlService.executePreparedStatement(
                 app.dbUnixSocketFile,
                 "CALL NodeOps.forceKeyspaceCompaction(?, ?, ?, ?)",
                 compactRequest.splitOutput,
@@ -226,13 +232,18 @@ public class TableOpsResources {
   @ApiResponse(
       responseCode = "200",
       description = "Table garbage collection successful",
-      content = @Content(mediaType = MediaType.TEXT_PLAIN, examples = @ExampleObject(value = "OK")))
+      content =
+          @Content(
+              mediaType = MediaType.TEXT_PLAIN,
+              schema = @Schema(implementation = String.class),
+              examples = @ExampleObject(value = "OK")))
   @ApiResponse(
       responseCode = "400",
       description = "Invalid table garbage collection request",
       content =
           @Content(
               mediaType = MediaType.TEXT_PLAIN,
+              schema = @Schema(implementation = String.class),
               examples = @ExampleObject(value = "tombstoneOption must be either ROW or CELL")))
   @Operation(
       summary = "Remove deleted data from one or more tables",
@@ -263,13 +274,14 @@ public class TableOpsResources {
                 .build();
           }
 
-          cqlService.executePreparedStatement(
+          app.cqlService.executePreparedStatement(
               app.dbUnixSocketFile,
-              "CALL NodeOps.garbageCollect(?, ?, ?, ?)",
+              "CALL NodeOps.garbageCollect(?, ?, ?, ?, ?)",
               tombstoneOption,
               keyspaceRequest.jobs,
               keyspaceName,
-              tables);
+              tables,
+              false);
 
           return Response.ok("OK").build();
         });
@@ -282,7 +294,11 @@ public class TableOpsResources {
   @ApiResponse(
       responseCode = "200",
       description = "Table flush successful",
-      content = @Content(mediaType = MediaType.TEXT_PLAIN, examples = @ExampleObject(value = "OK")))
+      content =
+          @Content(
+              mediaType = MediaType.TEXT_PLAIN,
+              schema = @Schema(implementation = String.class),
+              examples = @ExampleObject(value = "OK")))
   @Operation(summary = "Flush one or more tables", operationId = "flush")
   public Response flush(KeyspaceRequest keyspaceRequest) {
     return handle(
@@ -297,8 +313,12 @@ public class TableOpsResources {
             keyspaceName = "ALL";
           }
 
-          cqlService.executePreparedStatement(
-              app.dbUnixSocketFile, "CALL NodeOps.forceKeyspaceFlush(?, ?)", keyspaceName, tables);
+          app.cqlService.executePreparedStatement(
+              app.dbUnixSocketFile,
+              "CALL NodeOps.forceKeyspaceFlush(?, ?, ?)",
+              keyspaceName,
+              tables,
+              false);
 
           return Response.ok("OK").build();
         });
@@ -312,6 +332,7 @@ public class TableOpsResources {
       content =
           @Content(
               mediaType = MediaType.APPLICATION_JSON,
+              array = @ArraySchema(schema = @Schema(implementation = String.class)),
               examples = @ExampleObject(value = "[\n    \"table_1\",\n    \"table_2\"\n]")))
   @ApiResponse(
       responseCode = "400",
@@ -319,6 +340,7 @@ public class TableOpsResources {
       content =
           @Content(
               mediaType = MediaType.TEXT_PLAIN,
+              schema = @Schema(implementation = String.class),
               examples =
                   @ExampleObject(
                       value = "List tables failed. Non-empty 'keyspaceName' must be provided")))
@@ -331,14 +353,13 @@ public class TableOpsResources {
           .entity("List tables failed. Non-empty 'keyspaceName' must be provided")
           .build();
     }
-    return NodeOpsResources.handle(
+    return handle(
         () -> {
           ResultSet result =
-              cqlService.executePreparedStatement(
+              app.cqlService.executePreparedStatement(
                   app.dbUnixSocketFile, "CALL NodeOps.getTables(?)", keyspaceName);
-          Row row = result.one();
-          assert row != null;
-          List<String> tables = row.getList(0, String.class);
+          List<String> tables =
+              result.all().stream().map(row -> row.getString("name")).collect(Collectors.toList());
           return Response.ok(tables, MediaType.APPLICATION_JSON).build();
         });
   }
@@ -349,13 +370,18 @@ public class TableOpsResources {
   @ApiResponse(
       responseCode = "200",
       description = "Table creation successful",
-      content = @Content(mediaType = MediaType.TEXT_PLAIN, examples = @ExampleObject(value = "OK")))
+      content =
+          @Content(
+              mediaType = MediaType.TEXT_PLAIN,
+              schema = @Schema(implementation = String.class),
+              examples = @ExampleObject(value = "OK")))
   @ApiResponse(
       responseCode = "400",
       description = "Table creation failed",
       content =
           @Content(
               mediaType = MediaType.TEXT_PLAIN,
+              schema = @Schema(implementation = String.class),
               examples = @ExampleObject(value = "Table creation failed: some failure message")))
   @Consumes(MediaType.APPLICATION_JSON)
   @Operation(summary = "Create a new table in an existing keyspace", operationId = "createTable")
@@ -367,9 +393,9 @@ public class TableOpsResources {
           .entity("Table creation failed: " + e.getMessage())
           .build();
     }
-    return NodeOpsResources.handle(
+    return handle(
         () -> {
-          cqlService.executePreparedStatement(
+          app.cqlService.executePreparedStatement(
               app.dbUnixSocketFile,
               "CALL NodeOps.createTable(?, ?, ?, ?, ?, ?, ?, ?, ?)",
               request.keyspaceName,

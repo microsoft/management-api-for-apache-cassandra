@@ -229,6 +229,8 @@ public class DseAPI68 implements CassandraAPI {
       states.put("ENDPOINT_IP", endpoint.getHostAddress());
       states.put("IS_ALIVE", Boolean.toString(state.isAlive()));
       states.put("PARTITIONER", partitioner.getClass().getName());
+      states.put("CLUSTER_NAME", getStorageService().getClusterName());
+      states.put("IS_LOCAL", Boolean.toString(endpoint.equals(FBUtilities.getBroadcastAddress())));
       result.add(states);
     }
 

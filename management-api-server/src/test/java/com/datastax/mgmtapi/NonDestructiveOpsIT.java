@@ -5,7 +5,6 @@
  */
 package com.datastax.mgmtapi;
 
-import static io.netty.util.CharsetUtil.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.awaitility.Awaitility.await;
@@ -30,6 +29,7 @@ import com.datastax.mgmtapi.resources.models.KeyspaceRequest;
 import com.datastax.mgmtapi.resources.models.RepairRequest;
 import com.datastax.mgmtapi.resources.models.ReplicationSetting;
 import com.datastax.mgmtapi.resources.models.ScrubRequest;
+import com.datastax.mgmtapi.resources.models.Table;
 import com.datastax.mgmtapi.resources.models.TakeSnapshotRequest;
 import com.datastax.oss.driver.api.core.metadata.schema.ClusteringOrder;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -40,7 +40,7 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Uninterruptibles;
-import io.netty.handler.codec.http.FullHttpResponse;
+import io.netty.util.IllegalReferenceCountException;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -50,7 +50,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
-import javax.ws.rs.core.MediaType;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.http.HttpStatus;
 import org.apache.http.client.utils.URIBuilder;
@@ -276,6 +275,7 @@ public class NonDestructiveOpsIT extends BaseDockerIntegrationTest {
     assumeTrue(IntegrationTestUtils.shouldRun());
     // Reset schema does not work on Cassandra 4.1+
     assumeFalse("4_1".equals(this.version));
+    assumeFalse("4_1_ubi".equals(this.version));
     assumeFalse("trunk".equals(this.version));
     ensureStarted();
 
@@ -346,6 +346,8 @@ public class NonDestructiveOpsIT extends BaseDockerIntegrationTest {
     List<Map<String, String>> entity = (List<Map<String, String>>) response.get("entity");
     Map<String, String> endpoint = entity.get(0);
     assertThat(endpoint.get("PARTITIONER")).endsWith("Murmur3Partitioner");
+    assertThat(endpoint.get("CLUSTER_NAME")).matches("Test Cluster");
+    assertThat(endpoint.get("IS_LOCAL")).isEqualTo("true");
     Iterable<String> tokens = Splitter.on(",").split(endpoint.get("TOKENS"));
     assertThat(tokens)
         .allSatisfy(
@@ -361,8 +363,7 @@ public class NonDestructiveOpsIT extends BaseDockerIntegrationTest {
 
     KeyspaceRequest keyspaceRequest =
         new KeyspaceRequest(1, "system_traces", Collections.singletonList("events"));
-    String keyspaceRequestAsJSON =
-        WriterUtility.asString(keyspaceRequest, MediaType.APPLICATION_JSON);
+    String keyspaceRequestAsJSON = JSON_MAPPER.writeValueAsString(keyspaceRequest);
     URI uri = new URIBuilder(BASE_PATH + "/ops/keyspace/cleanup").build();
 
     // Get job_id here..
@@ -436,7 +437,7 @@ public class NonDestructiveOpsIT extends BaseDockerIntegrationTest {
     ScrubRequest scrubRequest =
         new ScrubRequest(
             true, true, true, true, 2, "system_traces", Collections.singletonList("events"));
-    String requestAsJSON = WriterUtility.asString(scrubRequest, MediaType.APPLICATION_JSON);
+    String requestAsJSON = JSON_MAPPER.writeValueAsString(scrubRequest);
     URI uri = new URIBuilder(BASE_PATH + "/ops/tables/scrub").build();
     boolean requestSuccessful =
         client
@@ -456,7 +457,7 @@ public class NonDestructiveOpsIT extends BaseDockerIntegrationTest {
     CompactRequest compactRequest =
         new CompactRequest(
             false, false, null, null, "system_traces", null, Collections.singletonList("events"));
-    String requestAsJSON = WriterUtility.asString(compactRequest, MediaType.APPLICATION_JSON);
+    String requestAsJSON = JSON_MAPPER.writeValueAsString(compactRequest);
     URI uri = new URIBuilder(BASE_PATH + "/ops/tables/compact").build();
     boolean requestSuccessful =
         client
@@ -475,8 +476,7 @@ public class NonDestructiveOpsIT extends BaseDockerIntegrationTest {
 
     KeyspaceRequest keyspaceRequest =
         new KeyspaceRequest(1, "system_traces", Collections.singletonList("events"));
-    String keyspaceRequestAsJSON =
-        WriterUtility.asString(keyspaceRequest, MediaType.APPLICATION_JSON);
+    String keyspaceRequestAsJSON = JSON_MAPPER.writeValueAsString(keyspaceRequest);
     URI uri = new URIBuilder(BASE_PATH + "/ops/tables/garbagecollect").build();
     boolean requestSuccessful =
         client
@@ -494,8 +494,7 @@ public class NonDestructiveOpsIT extends BaseDockerIntegrationTest {
     NettyHttpClient client = new NettyHttpClient(BASE_URL);
 
     KeyspaceRequest keyspaceRequest = new KeyspaceRequest(1, null, null);
-    String keyspaceRequestAsJSON =
-        WriterUtility.asString(keyspaceRequest, MediaType.APPLICATION_JSON);
+    String keyspaceRequestAsJSON = JSON_MAPPER.writeValueAsString(keyspaceRequest);
     URI uri = new URIBuilder(BASE_PATH + "/ops/tables/flush").build();
     boolean requestSuccessful =
         client
@@ -513,8 +512,7 @@ public class NonDestructiveOpsIT extends BaseDockerIntegrationTest {
     NettyHttpClient client = new NettyHttpClient(BASE_URL);
 
     KeyspaceRequest keyspaceRequest = new KeyspaceRequest(1, "", null);
-    String keyspaceRequestAsJSON =
-        WriterUtility.asString(keyspaceRequest, MediaType.APPLICATION_JSON);
+    String keyspaceRequestAsJSON = JSON_MAPPER.writeValueAsString(keyspaceRequest);
     URI uri = new URIBuilder(BASE_PATH + "/ops/tables/sstables/upgrade").build();
     boolean requestSuccessful =
         client
@@ -549,7 +547,7 @@ public class NonDestructiveOpsIT extends BaseDockerIntegrationTest {
             .thenApply(this::responseAsString)
             .join();
 
-    createKeyspace(client, localDc, "someTestKeyspace");
+    createKeyspace(client, localDc, "someTestKeyspace", 1);
   }
 
   @Test
@@ -565,11 +563,11 @@ public class NonDestructiveOpsIT extends BaseDockerIntegrationTest {
             .join();
 
     String ks = "alteringKeyspaceTest";
-    createKeyspace(client, localDc, ks);
+    createKeyspace(client, localDc, ks, 1);
 
     CreateOrAlterKeyspaceRequest request =
         new CreateOrAlterKeyspaceRequest(ks, Arrays.asList(new ReplicationSetting(localDc, 3)));
-    String requestAsJSON = WriterUtility.asString(request, MediaType.APPLICATION_JSON);
+    String requestAsJSON = JSON_MAPPER.writeValueAsString(request);
 
     boolean requestSuccessful =
         client
@@ -592,7 +590,7 @@ public class NonDestructiveOpsIT extends BaseDockerIntegrationTest {
             .join();
 
     String ks = "getkeyspacestest";
-    createKeyspace(client, localDc, ks);
+    createKeyspace(client, localDc, ks, 1);
 
     URI uri = new URIBuilder(BASE_PATH + "/ops/keyspace").build();
     String response = client.get(uri.toURL()).thenApply(this::responseAsString).join();
@@ -619,7 +617,7 @@ public class NonDestructiveOpsIT extends BaseDockerIntegrationTest {
 
     NettyHttpClient client = new NettyHttpClient(BASE_URL);
 
-    URIBuilder uriBuilder = new URIBuilder("http://localhost:8080/api/v1/ops/node/schema/versions");
+    URIBuilder uriBuilder = new URIBuilder(BASE_PATH_V1 + "/ops/node/schema/versions");
     URI uri = uriBuilder.build();
 
     Pair<Integer, String> response =
@@ -665,7 +663,7 @@ public class NonDestructiveOpsIT extends BaseDockerIntegrationTest {
             null,
             null,
             null);
-    String requestAsJSON = WriterUtility.asString(takeSnapshotRequest, MediaType.APPLICATION_JSON);
+    String requestAsJSON = JSON_MAPPER.writeValueAsString(takeSnapshotRequest);
 
     boolean takeSnapshotSuccessful =
         client
@@ -679,8 +677,7 @@ public class NonDestructiveOpsIT extends BaseDockerIntegrationTest {
     String getSnapshotResponse =
         client.get(getSnapshotsUri.toURL()).thenApply(this::responseAsString).join();
     assertNotNull(getSnapshotResponse);
-    Object responseObject =
-        ReaderUtility.read(Object.class, MediaType.APPLICATION_JSON, getSnapshotResponse);
+    Object responseObject = JSON_MAPPER.readValue(getSnapshotResponse, Object.class);
     assertTrue(responseObject instanceof Map);
     Map<Object, Object> responseObj = (Map) responseObject;
     assertTrue(responseObj.containsKey("entity"));
@@ -709,8 +706,7 @@ public class NonDestructiveOpsIT extends BaseDockerIntegrationTest {
     getSnapshotResponse =
         client.get(getSnapshotsUri.toURL()).thenApply(this::responseAsString).join();
     assertNotNull(getSnapshotResponse);
-    responseObject =
-        ReaderUtility.read(Object.class, MediaType.APPLICATION_JSON, getSnapshotResponse);
+    responseObject = JSON_MAPPER.readValue(getSnapshotResponse, Object.class);
     assertTrue(responseObject instanceof Map);
     responseObj = (Map) responseObject;
     assertTrue(responseObj.containsKey("entity"));
@@ -725,14 +721,23 @@ public class NonDestructiveOpsIT extends BaseDockerIntegrationTest {
     assumeTrue(IntegrationTestUtils.shouldRun());
     ensureStarted();
 
+    // create a keyspace with RF of at least 2
     NettyHttpClient client = new NettyHttpClient(BASE_URL);
+    String localDc =
+        client
+            .get(new URIBuilder(BASE_PATH + "/metadata/localdc").build().toURL())
+            .thenApply(this::responseAsString)
+            .join();
+
+    String ks = "someTestKeyspace";
+    createKeyspace(client, localDc, ks, 2);
 
     URIBuilder uriBuilder = new URIBuilder(BASE_PATH + "/ops/node/repair");
     URI repairUri = uriBuilder.build();
 
     // execute repair
-    RepairRequest repairRequest = new RepairRequest("system_auth", null, Boolean.TRUE);
-    String requestAsJSON = WriterUtility.asString(repairRequest, MediaType.APPLICATION_JSON);
+    RepairRequest repairRequest = new RepairRequest(ks, null, Boolean.TRUE);
+    String requestAsJSON = JSON_MAPPER.writeValueAsString(repairRequest);
 
     boolean repairSuccessful =
         client
@@ -740,6 +745,64 @@ public class NonDestructiveOpsIT extends BaseDockerIntegrationTest {
             .thenApply(r -> r.status().code() == HttpStatus.SC_OK)
             .join();
     assertTrue("Repair request was not successful", repairSuccessful);
+  }
+
+  @Test
+  public void testAsyncRepair() throws IOException, URISyntaxException, InterruptedException {
+    assumeTrue(IntegrationTestUtils.shouldRun());
+    ensureStarted();
+
+    // create a keyspace with RF of at least 2
+    NettyHttpClient client = new NettyHttpClient(BASE_URL);
+    String localDc =
+        client
+            .get(new URIBuilder(BASE_PATH + "/metadata/localdc").build().toURL())
+            .thenApply(this::responseAsString)
+            .join();
+
+    String ks = "someTestKeyspace";
+    createKeyspace(client, localDc, ks, 2);
+
+    URIBuilder uriBuilder = new URIBuilder(BASE_PATH_V1 + "/ops/node/repair");
+    URI repairUri = uriBuilder.build();
+
+    // execute repair
+    RepairRequest repairRequest = new RepairRequest("someTestKeyspace", null, Boolean.TRUE);
+    String requestAsJSON = JSON_MAPPER.writeValueAsString(repairRequest);
+
+    Pair<Integer, String> repairResponse =
+        client.post(repairUri.toURL(), requestAsJSON).thenApply(this::responseAsCodeAndBody).join();
+    assertThat(repairResponse.getLeft()).isEqualTo(HttpStatus.SC_ACCEPTED);
+    String jobId = repairResponse.getRight();
+    assertThat(jobId).isNotEmpty();
+
+    URI getJobDetailsUri =
+        new URIBuilder(BASE_PATH + "/ops/executor/job").addParameter("job_id", jobId).build();
+
+    await()
+        .atMost(Duration.ofMinutes(5))
+        .untilAsserted(
+            () -> {
+              Pair<Integer, String> getJobDetailsResponse;
+              try {
+                getJobDetailsResponse =
+                    client
+                        .get(getJobDetailsUri.toURL())
+                        .thenApply(this::responseAsCodeAndBody)
+                        .join();
+              } catch (IllegalReferenceCountException e) {
+                // Just retry
+                assertFalse(true);
+                return;
+              }
+              assertThat(getJobDetailsResponse.getLeft()).isEqualTo(HttpStatus.SC_OK);
+              Job jobDetails =
+                  new JsonMapper()
+                      .readValue(getJobDetailsResponse.getRight(), new TypeReference<Job>() {});
+              assertThat(jobDetails.getJobId()).isEqualTo(jobId);
+              assertThat(jobDetails.getJobType()).isEqualTo("repair");
+              assertThat(jobDetails.getStatus().toString()).isIn("COMPLETED", "ERROR");
+            });
   }
 
   @Test
@@ -755,7 +818,7 @@ public class NonDestructiveOpsIT extends BaseDockerIntegrationTest {
             .join();
 
     String ks = "getreplicationtest";
-    createKeyspace(client, localDc, ks);
+    createKeyspace(client, localDc, ks, 1);
 
     // missing keyspace
     URI uri = new URIBuilder(BASE_PATH + "/ops/keyspace/replication").build();
@@ -825,6 +888,54 @@ public class NonDestructiveOpsIT extends BaseDockerIntegrationTest {
   }
 
   @Test
+  public void testGetTablesV1() throws IOException, URISyntaxException {
+    assumeTrue(IntegrationTestUtils.shouldRun());
+    ensureStarted();
+
+    NettyHttpClient client = new NettyHttpClient(BASE_URL);
+
+    // missing keyspace
+    URI uri = new URIBuilder(BASE_PATH_V1 + "/ops/tables").build();
+    Pair<Integer, String> response =
+        client.get(uri.toURL()).thenApply(this::responseAsCodeAndBody).join();
+    assertThat(response.getLeft()).isEqualTo(HttpStatus.SC_BAD_REQUEST);
+    assertThat(response.getRight()).contains("Non-empty 'keyspaceName' must be provided");
+
+    // non existent keyspace
+    uri = new URIBuilder(BASE_PATH_V1 + "/ops/tables?keyspaceName=nonexistent").build();
+    response = client.get(uri.toURL()).thenApply(this::responseAsCodeAndBody).join();
+    assertThat(response.getLeft()).isEqualTo(HttpStatus.SC_OK);
+    assertThat(response.getRight()).isEqualTo("[]");
+
+    // existing keyspace
+    uri = new URIBuilder(BASE_PATH_V1 + "/ops/tables?keyspaceName=system_schema").build();
+    response = client.get(uri.toURL()).thenApply(this::responseAsCodeAndBody).join();
+    assertThat(response.getLeft()).isEqualTo(HttpStatus.SC_OK);
+
+    List<Table> actual =
+        new JsonMapper().readValue(response.getRight(), new TypeReference<List<Table>>() {});
+    assertThat(actual)
+        .extracting("name")
+        .contains(
+            "aggregates",
+            "columns",
+            "functions",
+            "indexes",
+            "keyspaces",
+            "tables",
+            "triggers",
+            "types",
+            "views");
+    assertThat(actual)
+        .allSatisfy(
+            table ->
+                assertThat(table.compaction)
+                    .containsEntry(
+                        "class",
+                        "org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy"));
+  }
+
+  @Test
   public void testCreateTable() throws IOException, URISyntaxException {
     assumeTrue(IntegrationTestUtils.shouldRun());
     ensureStarted();
@@ -838,7 +949,7 @@ public class NonDestructiveOpsIT extends BaseDockerIntegrationTest {
 
     // this test also tests case sensitivity in CQL identifiers.
     String ks = "CreateTableTest";
-    createKeyspace(client, localDc, ks);
+    createKeyspace(client, localDc, ks, 1);
 
     CreateTableRequest request =
         new CreateTableRequest(
@@ -906,49 +1017,12 @@ public class NonDestructiveOpsIT extends BaseDockerIntegrationTest {
                       .thenApply(this::responseAsCodeAndBody)
                       .join();
               assertThat(getJobDetailsResponse.getLeft()).isEqualTo(HttpStatus.SC_OK);
-              Map<String, String> jobDetails =
+              Job jobDetails =
                   new JsonMapper()
-                      .readValue(
-                          getJobDetailsResponse.getRight(),
-                          new TypeReference<Map<String, String>>() {});
-              assertThat(jobDetails)
-                  .hasEntrySatisfying("id", value -> assertThat(value).isEqualTo(jobId))
-                  .hasEntrySatisfying("type", value -> assertThat(value).isEqualTo("move"))
-                  // if the server has only one token, the job will be completed, otherwise it will
-                  // end up in error
-                  .hasEntrySatisfying(
-                      "status", value -> assertThat(value).isIn("COMPLETED", "ERROR"));
+                      .readValue(getJobDetailsResponse.getRight(), new TypeReference<Job>() {});
+              assertThat(jobDetails.getJobId()).isEqualTo(jobId);
+              assertThat(jobDetails.getJobType()).isEqualTo("move");
+              assertThat(jobDetails.getStatus().toString()).isIn("COMPLETED", "ERROR");
             });
-  }
-
-  private void createKeyspace(NettyHttpClient client, String localDc, String keyspaceName)
-      throws IOException, URISyntaxException {
-    CreateOrAlterKeyspaceRequest request =
-        new CreateOrAlterKeyspaceRequest(
-            keyspaceName, Arrays.asList(new ReplicationSetting(localDc, 1)));
-    String requestAsJSON = WriterUtility.asString(request, MediaType.APPLICATION_JSON);
-
-    URI uri = new URIBuilder(BASE_PATH + "/ops/keyspace/create").build();
-    boolean requestSuccessful =
-        client
-            .post(uri.toURL(), requestAsJSON)
-            .thenApply(r -> r.status().code() == HttpStatus.SC_OK)
-            .join();
-    assertTrue(requestSuccessful);
-  }
-
-  private String responseAsString(FullHttpResponse r) {
-    if (r.status().code() == HttpStatus.SC_OK) {
-      byte[] result = new byte[r.content().readableBytes()];
-      r.content().readBytes(result);
-
-      return new String(result);
-    }
-
-    return null;
-  }
-
-  private Pair<Integer, String> responseAsCodeAndBody(FullHttpResponse r) {
-    return Pair.of(r.status().code(), r.content().toString(UTF_8));
   }
 }

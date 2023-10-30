@@ -5,6 +5,12 @@ on:
     # * is a special character in YAML so you have to quote this string
     - cron:  '4 20 * * *'
   workflow_dispatch:
+    inputs:
+      sha:
+        description: 'Cassandra trunk commit SHA to build'
+        required: false
+        default: 'HEAD'
+        type: string
 
 jobs:
   build-oss-trunk:
@@ -14,8 +20,24 @@ jobs:
         cassandra-version: ['5.0']
     runs-on: ubuntu-latest
     steps:
-      - name: Setup Docker meta
-        id: meta
+      - name: Checkout Cassandra
+        id: checkout_cassandra
+        uses: actions/checkout@v3
+        with:
+          repository: 'apache/cassandra'
+      - name: Get scheduled Cassandra COMMIT SHA
+        if: ${{ github.event_name == 'schedule' }}
+        id: get_sha_scheduled
+        run: |
+          echo "COMMITSHA=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+      - name: Get on-demand Cassandra COMMIT SHA
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        id: get_sha_on_demand
+        run: |
+          echo "COMMITSHA=$(git rev-parse --short ${{ inputs.sha }})" >> $GITHUB_ENV
+      - name: Setup Docker scheduled meta
+        if: ${{ github.event_name == 'schedule' }}
+        id: meta_schedule
         uses: docker/metadata-action@v4
         with:
           images: k8ssandra/cass-management-api
@@ -24,7 +46,19 @@ jobs:
           tags: |
             type=raw,value=latest
             type=schedule,pattern={{date 'YYYYMMDD'}}
-      - uses: actions/checkout@v3
+            type=raw,value=${{ env.COMMITSHA }}
+      - name: Setup Docker on demand meta
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        id: meta_on_demand
+        uses: docker/metadata-action@v4
+        with:
+          images: k8ssandra/cass-management-api
+          flavor: |
+            prefix=${{ matrix.cassandra-version }}-
+          tags: |
+            type=raw,value=${{ env.COMMITSHA }}
+      - name: Checkout Management API
+        uses: actions/checkout@v3
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
       - name: Setup Buildx
@@ -37,13 +71,26 @@ jobs:
         with:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_PASSWORD }}
-      - name: Publish ${{ matrix.cassandra-version }} to Registry
-        id: docker_build
+      - name: Publish scheduled ${{ matrix.cassandra-version }} to Registry
+        if: ${{ github.event_name == 'schedule' }}
+        id: docker_build_schedule
         uses: docker/build-push-action@v3
         with:
           file: cassandra-trunk/Dockerfile.ubi8
           context: .
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          platforms: linux/amd64
+          tags: ${{ steps.meta_schedule.outputs.tags }}
+          platforms: linux/amd64,linux/arm64
           target: cass-trunk
+      - name: Publish on-demand ${{ matrix.cassandra-version }} to Registry
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        id: docker_build_on_demand
+        uses: docker/build-push-action@v3
+        with:
+          file: cassandra-trunk/Dockerfile.ubi8
+          context: .
+          push: true
+          tags: ${{ steps.meta_on_demand.outputs.tags }}
+          platforms: linux/amd64,linux/arm64
+          target: cass-trunk
+          build-args: COMMITSHA=${{ env.COMMITSHA }}

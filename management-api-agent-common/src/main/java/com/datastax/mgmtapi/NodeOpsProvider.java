@@ -20,11 +20,12 @@ import com.datastax.oss.driver.api.querybuilder.schema.CreateTable;
 import com.datastax.oss.driver.api.querybuilder.schema.CreateTableWithOptions;
 import com.datastax.oss.driver.api.querybuilder.schema.OngoingPartitionKey;
 import com.datastax.oss.driver.internal.core.metadata.schema.parsing.DataTypeCqlNameParser;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
-import java.io.File;
-import java.io.FileNotFoundException;
+import com.google.common.collect.Maps;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.MalformedURLException;
@@ -41,6 +42,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
+import javax.management.NotificationFilter;
 import javax.management.openmbean.CompositeDataSupport;
 import javax.management.openmbean.TabularData;
 import org.apache.cassandra.auth.AuthenticatedUser;
@@ -57,6 +59,7 @@ import org.apache.cassandra.repair.RepairParallelism;
 import org.apache.cassandra.repair.messages.RepairOption;
 import org.apache.cassandra.service.StorageProxy;
 import org.apache.cassandra.utils.Pair;
+import org.apache.cassandra.utils.progress.ProgressEventType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -81,7 +84,7 @@ public class NodeOpsProvider {
     RpcRegistry.unregister(RPC_CLASS_NAME);
   }
 
-  @Rpc(name = "jobStatus")
+  @Rpc(name = "getJobStatus")
   public Map<String, String> getJobStatus(@RpcParam(name = "job_id") String jobId) {
     Map<String, String> resultMap = new HashMap<>();
     Job jobWithId = service.getJobWithId(jobId);
@@ -95,6 +98,23 @@ public class NodeOpsProvider {
     resultMap.put("end_time", String.valueOf(jobWithId.getFinishedTime()));
     if (jobWithId.getStatus() == Job.JobStatus.ERROR) {
       resultMap.put("error", jobWithId.getError().getLocalizedMessage());
+    }
+
+    List<Map<String, String>> statusChanges = new ArrayList<>();
+    for (Job.StatusChange statusChange : jobWithId.getStatusChanges()) {
+      Map<String, String> change = Maps.newHashMap();
+      change.put("status", statusChange.getStatus().name());
+      change.put("change_time", Long.valueOf(statusChange.getChangeTime()).toString());
+      change.put("message", statusChange.getMessage());
+      statusChanges.add(change);
+    }
+
+    ObjectMapper objectMapper = new ObjectMapper();
+    try {
+      String s = objectMapper.writeValueAsString(statusChanges);
+      resultMap.put("status_changes", s);
+    } catch (JsonProcessingException e) {
+      throw new RuntimeException(e);
     }
 
     return resultMap;
@@ -455,12 +475,19 @@ public class NodeOpsProvider {
     return submitJob(OperationType.COMPACTION.name(), compactionOperation, async);
   }
 
+  @Rpc(name = "getCompactions")
+  public List<Map<String, String>> getCompactions() {
+    logger.debug("Getting active compactions");
+    return ShimLoader.instance.get().getCompactionManager().getCompactions();
+  }
+
   @Rpc(name = "garbageCollect")
-  public void garbageCollect(
+  public String garbageCollect(
       @RpcParam(name = "tombstoneOption") String tombstoneOption,
       @RpcParam(name = "jobs") int jobs,
       @RpcParam(name = "keyspaceName") String keyspaceName,
-      @RpcParam(name = "tableNames") List<String> tableNames)
+      @RpcParam(name = "tableNames") List<String> tableNames,
+      @RpcParam(name = "async") boolean async)
       throws InterruptedException, ExecutionException, IOException {
     logger.debug("Garbage collecting on keyspace {}", keyspaceName);
     List<String> keyspaces = Collections.singletonList(keyspaceName);
@@ -468,12 +495,24 @@ public class NodeOpsProvider {
       keyspaces = ShimLoader.instance.get().getStorageService().getKeyspaces();
     }
 
-    for (String keyspace : keyspaces) {
-      ShimLoader.instance
-          .get()
-          .getStorageService()
-          .garbageCollect(tombstoneOption, jobs, keyspace, tableNames.toArray(new String[] {}));
-    }
+    final List<String> keyspaceList = keyspaces;
+
+    Runnable garbageCollectOperation =
+        () -> {
+          for (String keyspace : keyspaceList) {
+            try {
+              ShimLoader.instance
+                  .get()
+                  .getStorageService()
+                  .garbageCollect(
+                      tombstoneOption, jobs, keyspace, tableNames.toArray(new String[] {}));
+            } catch (IOException | ExecutionException | InterruptedException e) {
+              throw new RuntimeException(e);
+            }
+          }
+        };
+
+    return submitJob(OperationType.GARBAGE_COLLECT.name(), garbageCollectOperation, async);
   }
 
   @Rpc(name = "loadNewSSTables")
@@ -485,9 +524,10 @@ public class NodeOpsProvider {
   }
 
   @Rpc(name = "forceKeyspaceFlush")
-  public void forceKeyspaceFlush(
+  public String forceKeyspaceFlush(
       @RpcParam(name = "keyspaceName") String keyspaceName,
-      @RpcParam(name = "tableNames") List<String> tableNames)
+      @RpcParam(name = "tableNames") List<String> tableNames,
+      @RpcParam(name = "async") boolean async)
       throws IOException {
     logger.debug("Forcing keyspace flush on keyspace {}", keyspaceName);
     List<String> keyspaces = Collections.singletonList(keyspaceName);
@@ -495,12 +535,23 @@ public class NodeOpsProvider {
       keyspaces = ShimLoader.instance.get().getStorageService().getKeyspaces();
     }
 
-    for (String keyspace : keyspaces) {
-      ShimLoader.instance
-          .get()
-          .getStorageService()
-          .forceKeyspaceFlush(keyspace, tableNames.toArray(new String[] {}));
-    }
+    final List<String> keyspaceList = keyspaces;
+
+    Runnable flushOperation =
+        () -> {
+          for (String keyspace : keyspaceList) {
+            try {
+              ShimLoader.instance
+                  .get()
+                  .getStorageService()
+                  .forceKeyspaceFlush(keyspace, tableNames.toArray(new String[] {}));
+            } catch (IOException e) {
+              throw new RuntimeException(e);
+            }
+          }
+        };
+
+    return submitJob(OperationType.FLUSH.name(), flushOperation, async);
   }
 
   @Rpc(name = "scrub")
@@ -624,17 +675,18 @@ public class NodeOpsProvider {
     return rows.one().getMap("replication", UTF8Type.instance, UTF8Type.instance);
   }
 
-  @Rpc(name = "getTables")
-  public List<String> getTables(@RpcParam(name = "keyspaceName") String keyspaceName) {
+  @Rpc(name = "getTables", multiRow = true)
+  public List<Table> getTables(@RpcParam(name = "keyspaceName") String keyspaceName) {
     String query =
         QueryBuilder.selectFrom("system_schema", "tables")
             .column("table_name")
+            .column("compaction")
             .where(Relation.column("keyspace_name").isEqualTo(QueryBuilder.literal(keyspaceName)))
             .asCql();
     UntypedResultSet rows = ShimLoader.instance.get().processQuery(query, ConsistencyLevel.ONE);
-    List<String> tables = new ArrayList<>();
+    List<Table> tables = new ArrayList<>();
     for (UntypedResultSet.Row row : rows) {
-      tables.add(row.getString("table_name"));
+      tables.add(new Table(row.getString("table_name"), row.getFrozenTextMap("compaction")));
     }
     return tables;
   }
@@ -823,31 +875,128 @@ public class NodeOpsProvider {
   }
 
   @Rpc(name = "repair")
-  public void repair(
+  public String repair(
       @RpcParam(name = "keyspaceName") String keyspace,
       @RpcParam(name = "tables") List<String> tables,
-      @RpcParam(name = "full") Boolean full)
+      @RpcParam(name = "full") Boolean full,
+      @RpcParam(name = "notifications") boolean notifications,
+      @RpcParam(name = "repairParallelism") String repairParallelism,
+      @RpcParam(name = "datacenters") List<String> datacenters,
+      @RpcParam(name = "associatedTokens") String ringRangeString,
+      @RpcParam(name = "repairThreadCount") Integer repairThreadCount)
       throws IOException {
     // At least one keyspace is required
-    if (keyspace != null) {
-      // create the repair spec
-      Map<String, String> repairSpec = new HashMap<>();
-
-      // add any specified tables to the repair spec
-      if (tables != null && !tables.isEmpty()) {
-        // set the tables/column families
-        repairSpec.put(RepairOption.COLUMNFAMILIES_KEY, String.join(",", tables));
-      }
-
-      // handle incremental vs full
-      boolean isIncremental = Boolean.FALSE.equals(full);
-      repairSpec.put(RepairOption.INCREMENTAL_KEY, Boolean.toString(isIncremental));
-      if (isIncremental) {
-        // incremental repairs will fail if parallelism is not set
-        repairSpec.put(RepairOption.PARALLELISM_KEY, RepairParallelism.PARALLEL.getName());
-      }
-      ShimLoader.instance.get().getStorageService().repairAsync(keyspace, repairSpec);
+    assert (keyspace != null);
+    Map<String, String> repairSpec = new HashMap<>();
+    // add tables/column families
+    if (tables != null && !tables.isEmpty()) {
+      repairSpec.put(RepairOption.COLUMNFAMILIES_KEY, String.join(",", tables));
     }
+    // set incremental reapir
+    repairSpec.put(RepairOption.INCREMENTAL_KEY, Boolean.toString(!full));
+    // Parallelism should be set if it's requested OR if incremental repair is requested.
+    if (!full) {
+      // Incremental repair requested, make sure parallelism is correct
+      if (repairParallelism != null
+          && !RepairParallelism.PARALLEL.getName().equals(repairParallelism)) {
+        throw new IOException(
+            "Invalid repair combination. Incremental repair if Parallelism is not set");
+      }
+      // Incremental repair and parallelism should be set
+      repairSpec.put(RepairOption.PARALLELISM_KEY, RepairParallelism.PARALLEL.getName());
+    }
+    if (repairThreadCount != null) {
+      // if specified, the value should be at least 1
+      if (repairThreadCount.compareTo(Integer.valueOf(0)) <= 0) {
+        throw new IOException(
+            "Invalid repari thread count: "
+                + repairThreadCount
+                + ". Value should be greater than 0");
+      }
+      repairSpec.put(RepairOption.JOB_THREADS_KEY, repairThreadCount.toString());
+    }
+    repairSpec.put(RepairOption.TRACE_KEY, Boolean.toString(Boolean.FALSE));
+
+    if (ringRangeString != null && !ringRangeString.isEmpty()) {
+      repairSpec.put(RepairOption.RANGES_KEY, ringRangeString);
+    }
+    // add datacenters to the repair spec
+    if (datacenters != null && !datacenters.isEmpty()) {
+      repairSpec.put(RepairOption.DATACENTERS_KEY, String.join(",", datacenters));
+    }
+
+    // Since Cassandra provides us with a async, we don't need to use our executor interface for
+    // this.
+    final int repairJobId =
+        ShimLoader.instance.get().getStorageService().repairAsync(keyspace, repairSpec);
+
+    if (!notifications) {
+      return Integer.valueOf(repairJobId).toString();
+    }
+
+    String jobId = String.format("repair-%d", repairJobId);
+    final Job job = service.createJob("repair", jobId);
+
+    if (repairJobId == 0) {
+      // Job is done and won't continue
+      job.setStatusChange(ProgressEventType.COMPLETE, "");
+      job.setStatus(Job.JobStatus.COMPLETED);
+      job.setFinishedTime(System.currentTimeMillis());
+      service.updateJob(job);
+      return job.getJobId();
+    }
+
+    ShimLoader.instance
+        .get()
+        .getStorageService()
+        .addNotificationListener(
+            (notification, handback) -> {
+              if (notification.getType().equals("progress")) {
+                Map<String, Integer> data = (Map<String, Integer>) notification.getUserData();
+                ProgressEventType progress = ProgressEventType.values()[data.get("type")];
+
+                switch (progress) {
+                  case START:
+                    job.setStatusChange(progress, notification.getMessage());
+                    job.setStartTime(System.currentTimeMillis());
+                    break;
+                  case NOTIFICATION:
+                  case PROGRESS:
+                    break;
+                  case ERROR:
+                  case ABORT:
+                    job.setError(new RuntimeException(notification.getMessage()));
+                    job.setStatusChange(progress, notification.getMessage());
+                    job.setStatus(Job.JobStatus.ERROR);
+                    job.setFinishedTime(System.currentTimeMillis());
+                    break;
+                  case SUCCESS:
+                    job.setStatusChange(progress, notification.getMessage());
+                    // SUCCESS / ERROR does not mean the job has completed yet (COMPLETE is that)
+                    break;
+                  case COMPLETE:
+                    job.setStatusChange(progress, notification.getMessage());
+                    job.setStatus(Job.JobStatus.COMPLETED);
+                    job.setFinishedTime(System.currentTimeMillis());
+                    break;
+                }
+                service.updateJob(job);
+              }
+            },
+            (NotificationFilter)
+                notification -> {
+                  final int repairNo =
+                      Integer.parseInt(((String) notification.getSource()).split(":")[1]);
+                  return repairNo == repairJobId;
+                },
+            null);
+
+    return job.getJobId();
+  }
+
+  @Rpc(name = "stopAllRepairs")
+  public void stopAllRepairs() {
+    ShimLoader.instance.get().getStorageService().forceTerminateAllRepairSessions();
   }
 
   @Rpc(name = "move")
@@ -867,5 +1016,11 @@ public class NodeOpsProvider {
         };
 
     return submitJob("move", moveOperation, async);
+  }
+
+  @Rpc(name = "getRangeToEndpointMap")
+  public Map<List<String>, List<String>> getRangeToEndpointMap(
+      @RpcParam(name = "keyspaceName") String keyspaceName) {
+    return ShimLoader.instance.get().getStorageService().getRangeToEndpointMap(keyspaceName);
   }
 }

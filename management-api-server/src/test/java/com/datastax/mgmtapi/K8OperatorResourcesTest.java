@@ -40,11 +40,14 @@ import com.datastax.mgmtapi.resources.models.TakeSnapshotRequest;
 import com.datastax.oss.driver.api.core.cql.ResultSet;
 import com.datastax.oss.driver.api.core.cql.Row;
 import com.datastax.oss.driver.api.core.metadata.schema.ClusteringOrder;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -591,6 +594,21 @@ public class K8OperatorResourcesTest {
     jobDetailsRow.put("submit_time", String.valueOf(System.currentTimeMillis()));
     jobDetailsRow.put("end_time", String.valueOf(System.currentTimeMillis()));
 
+    List<Map<String, String>> statusChanges = new ArrayList<>();
+    Map<String, String> change = Maps.newHashMap();
+    change.put("status", "SUCCESS");
+    change.put("change_time", "1695183696663");
+    change.put("message", "No message");
+    statusChanges.add(change);
+
+    ObjectMapper objectMapper = new ObjectMapper();
+    try {
+      String s = objectMapper.writeValueAsString(statusChanges);
+      jobDetailsRow.put("status_changes", s);
+    } catch (JsonProcessingException e) {
+      throw new RuntimeException(e);
+    }
+
     when(mockRow.getObject(0)).thenReturn(jobDetailsRow);
 
     MockHttpResponse response =
@@ -599,7 +617,7 @@ public class K8OperatorResourcesTest {
 
     Assert.assertEquals(HttpStatus.SC_OK, response.getStatus());
     verify(context.cqlService)
-        .executePreparedStatement(any(), eq("CALL NodeOps.jobStatus(?)"), anyString());
+        .executePreparedStatement(any(), eq("CALL NodeOps.getJobStatus(?)"), anyString());
 
     String json = response.getContentAsString();
 
@@ -608,6 +626,8 @@ public class K8OperatorResourcesTest {
     assertEquals("0fe65b47-98c2-47d8-9c3c-5810c9988e10", jobDetails.getJobId());
     assertEquals("COMPLETED", jobDetails.getStatus().toString());
     assertEquals("CLEANUP", jobDetails.getJobType());
+    assertEquals(1, jobDetails.getStatusChanges().size());
+    assertEquals("SUCCESS", jobDetails.getStatusChanges().get(0).getStatus());
   }
 
   @Test
@@ -628,7 +648,7 @@ public class K8OperatorResourcesTest {
 
     Assert.assertEquals(HttpStatus.SC_NOT_FOUND, response.getStatus());
     verify(context.cqlService)
-        .executePreparedStatement(any(), eq("CALL NodeOps.jobStatus(?)"), anyString());
+        .executePreparedStatement(any(), eq("CALL NodeOps.getJobStatus(?)"), anyString());
 
     String json = response.getContentAsString();
     assertEquals("{}", json);
@@ -1020,11 +1040,54 @@ public class K8OperatorResourcesTest {
     verify(context.cqlService)
         .executePreparedStatement(
             any(),
-            eq("CALL NodeOps.garbageCollect(?, ?, ?, ?)"),
+            eq("CALL NodeOps.garbageCollect(?, ?, ?, ?, ?)"),
             eq(tombstoneOption),
             eq(1),
             eq(keyspaceRequest.keyspaceName),
-            any());
+            any(),
+            eq(false));
+  }
+
+  @Test
+  public void testGarbageCollectAsync() throws Exception {
+    KeyspaceRequest keyspaceRequest =
+        new KeyspaceRequest(1, "keyspace", Arrays.asList("table1", "table2"));
+
+    String tombstoneOption = "ROW";
+
+    Context context = setup();
+
+    ResultSet mockResultSet = mock(ResultSet.class);
+    Row mockRow = mock(Row.class);
+
+    when(context.cqlService.executePreparedStatement(
+            any(), anyString(), any(), any(), any(), any(), any()))
+        .thenReturn(mockResultSet);
+
+    when(mockResultSet.one()).thenReturn(mockRow);
+    when(mockRow.getString(0)).thenReturn("0fe65b47-98c2-47d8-9c3c-5810c9988e10");
+
+    setpMockGetKeyspaces(context, "keyspace");
+
+    String requestAsJSON = WriterUtility.asString(keyspaceRequest, MediaType.APPLICATION_JSON);
+    MockHttpResponse response =
+        postWithBodyFullPath(
+            "/api/v1/ops/tables/garbagecollect?tombstoneOption=" + tombstoneOption,
+            requestAsJSON,
+            context);
+
+    Assert.assertEquals(HttpStatus.SC_ACCEPTED, response.getStatus());
+    assertEquals("0fe65b47-98c2-47d8-9c3c-5810c9988e10", response.getContentAsString());
+
+    verify(context.cqlService, timeout(500))
+        .executePreparedStatement(
+            any(),
+            eq("CALL NodeOps.garbageCollect(?, ?, ?, ?, ?)"),
+            eq(tombstoneOption),
+            eq(1),
+            eq(keyspaceRequest.keyspaceName),
+            any(),
+            eq(true));
   }
 
   @Test
@@ -1044,11 +1107,12 @@ public class K8OperatorResourcesTest {
     verify(context.cqlService)
         .executePreparedStatement(
             any(),
-            eq("CALL NodeOps.garbageCollect(?, ?, ?, ?)"),
+            eq("CALL NodeOps.garbageCollect(?, ?, ?, ?, ?)"),
             any(),
             eq(1),
             eq(keyspaceRequest.keyspaceName),
-            any());
+            any(),
+            eq(false));
   }
 
   @Test
@@ -1068,7 +1132,13 @@ public class K8OperatorResourcesTest {
 
     verify(context.cqlService)
         .executePreparedStatement(
-            any(), eq("CALL NodeOps.garbageCollect(?, ?, ?, ?)"), any(), eq(1), eq("ALL"), any());
+            any(),
+            eq("CALL NodeOps.garbageCollect(?, ?, ?, ?, ?)"),
+            any(),
+            eq(1),
+            eq("ALL"),
+            any(),
+            eq(false));
   }
 
   @Test
@@ -1098,7 +1168,7 @@ public class K8OperatorResourcesTest {
 
     Context context = setup();
 
-    when(context.cqlService.executePreparedStatement(any(), anyString())).thenReturn(null);
+    when(context.cqlService.executePreparedStatement(any(), anyString(), any())).thenReturn(null);
 
     String requestAsJSON = WriterUtility.asString(keyspaceRequest, MediaType.APPLICATION_JSON);
     MockHttpResponse response = postWithBody("/ops/tables/flush", requestAsJSON, context);
@@ -1109,9 +1179,44 @@ public class K8OperatorResourcesTest {
     verify(context.cqlService)
         .executePreparedStatement(
             any(),
-            eq("CALL NodeOps.forceKeyspaceFlush(?, ?)"),
+            eq("CALL NodeOps.forceKeyspaceFlush(?, ?, ?)"),
             eq(keyspaceRequest.keyspaceName),
-            any());
+            any(),
+            eq(false));
+  }
+
+  @Test
+  public void testFlushAsync() throws Exception {
+    KeyspaceRequest keyspaceRequest =
+        new KeyspaceRequest(1, "keyspace", Arrays.asList("table1", "table2"));
+
+    Context context = setup();
+
+    ResultSet mockResultSet = mock(ResultSet.class);
+    Row mockRow = mock(Row.class);
+
+    when(context.cqlService.executePreparedStatement(any(), anyString(), any(), any(), eq(true)))
+        .thenReturn(mockResultSet);
+
+    when(mockResultSet.one()).thenReturn(mockRow);
+    when(mockRow.getString(0)).thenReturn("0fe65b47-98c2-47d8-9c3c-5810c9988e10");
+
+    setpMockGetKeyspaces(context, "keyspace");
+
+    String requestAsJSON = WriterUtility.asString(keyspaceRequest, MediaType.APPLICATION_JSON);
+    MockHttpResponse response =
+        postWithBodyFullPath("/api/v1/ops/tables/flush", requestAsJSON, context);
+
+    Assert.assertEquals(HttpStatus.SC_ACCEPTED, response.getStatus());
+    assertEquals("0fe65b47-98c2-47d8-9c3c-5810c9988e10", response.getContentAsString());
+
+    verify(context.cqlService, timeout(500))
+        .executePreparedStatement(
+            any(),
+            eq("CALL NodeOps.forceKeyspaceFlush(?, ?, ?)"),
+            eq(keyspaceRequest.keyspaceName),
+            any(),
+            eq(true));
   }
 
   @Test
@@ -1120,7 +1225,7 @@ public class K8OperatorResourcesTest {
 
     Context context = setup();
 
-    when(context.cqlService.executePreparedStatement(any(), anyString())).thenReturn(null);
+    when(context.cqlService.executePreparedStatement(any(), anyString(), any())).thenReturn(null);
 
     String requestAsJSON = WriterUtility.asString(keyspaceRequest, MediaType.APPLICATION_JSON);
     MockHttpResponse response = postWithBody("/ops/tables/flush", requestAsJSON, context);
@@ -1131,9 +1236,10 @@ public class K8OperatorResourcesTest {
     verify(context.cqlService)
         .executePreparedStatement(
             any(),
-            eq("CALL NodeOps.forceKeyspaceFlush(?, ?)"),
+            eq("CALL NodeOps.forceKeyspaceFlush(?, ?, ?)"),
             eq(keyspaceRequest.keyspaceName),
-            any());
+            any(),
+            eq(false));
   }
 
   @Test
@@ -1143,7 +1249,7 @@ public class K8OperatorResourcesTest {
 
     Context context = setup();
 
-    when(context.cqlService.executePreparedStatement(any(), anyString())).thenReturn(null);
+    when(context.cqlService.executePreparedStatement(any(), anyString(), any())).thenReturn(null);
 
     String requestAsJSON = WriterUtility.asString(keyspaceRequest, MediaType.APPLICATION_JSON);
     MockHttpResponse response = postWithBody("/ops/tables/flush", requestAsJSON, context);
@@ -1153,7 +1259,7 @@ public class K8OperatorResourcesTest {
 
     verify(context.cqlService)
         .executePreparedStatement(
-            any(), eq("CALL NodeOps.forceKeyspaceFlush(?, ?)"), eq("ALL"), any());
+            any(), eq("CALL NodeOps.forceKeyspaceFlush(?, ?, ?)"), eq("ALL"), any(), eq(false));
   }
 
   @Test
@@ -1657,7 +1763,59 @@ public class K8OperatorResourcesTest {
     assertThat(response.getStatus()).isEqualTo(HttpStatus.SC_OK);
     verify(context.cqlService)
         .executePreparedStatement(
-            any(), eq("CALL NodeOps.repair(?, ?, ?)"), eq("test_ks"), eq(null), eq(true));
+            any(),
+            eq("CALL NodeOps.repair(?, ?, ?, ?, ?, ?, ?, ?)"),
+            eq("test_ks"),
+            eq(null),
+            eq(true),
+            eq(false),
+            eq(null),
+            eq(null),
+            eq(null),
+            eq(null));
+  }
+
+  @Test
+  public void testRepairAsync() throws Exception {
+    Context context = setup();
+    when(context.cqlService.executePreparedStatement(any(), anyString())).thenReturn(null);
+
+    RepairRequest repairRequest = new RepairRequest("test_ks", null, Boolean.TRUE);
+    String repairRequestAsJSON = WriterUtility.asString(repairRequest, MediaType.APPLICATION_JSON);
+
+    ResultSet mockResultSet = mock(ResultSet.class);
+    Row mockRow = mock(Row.class);
+
+    when(context.cqlService.executePreparedStatement(any(), any(), any()))
+        .thenReturn(mockResultSet);
+
+    when(mockResultSet.one()).thenReturn(mockRow);
+
+    when(mockRow.getString(0)).thenReturn("0fe65b47-98c2-47d8-9c3c-5810c9988e10");
+
+    MockHttpRequest request =
+        MockHttpRequest.post("/api/v1/ops/node/repair")
+            .content(repairRequestAsJSON.getBytes())
+            .accept(MediaType.TEXT_PLAIN)
+            .contentType(MediaType.APPLICATION_JSON_TYPE);
+
+    MockHttpResponse response = context.invoke(request);
+
+    Assert.assertEquals(HttpStatus.SC_ACCEPTED, response.getStatus());
+    Assert.assertEquals("0fe65b47-98c2-47d8-9c3c-5810c9988e10", response.getContentAsString());
+
+    verify(context.cqlService)
+        .executePreparedStatement(
+            any(),
+            eq("CALL NodeOps.repair(?, ?, ?, ?, ?, ?, ?, ?)"),
+            eq("test_ks"),
+            eq(null),
+            eq(true),
+            eq(true),
+            eq(null),
+            eq(null),
+            eq(null),
+            eq(null));
   }
 
   @Test
@@ -1737,20 +1895,21 @@ public class K8OperatorResourcesTest {
   public void testListTables() throws Exception {
     Context context = setup();
     ResultSet mockResultSet = mock(ResultSet.class);
-    Row mockRow = mock(Row.class);
+    Row mockRow1 = mock(Row.class);
+    Row mockRow2 = mock(Row.class);
 
     MockHttpRequest request = MockHttpRequest.get(ROOT_PATH + "/ops/tables?keyspaceName=ks1");
     when(context.cqlService.executePreparedStatement(any(), anyString(), anyString()))
         .thenReturn(mockResultSet);
-    when(mockResultSet.one()).thenReturn(mockRow);
-    List<String> result = ImmutableList.of("table1", "table2");
-    when(mockRow.getList(0, String.class)).thenReturn(result);
+    when(mockResultSet.all()).thenReturn(Lists.newArrayList(mockRow1, mockRow2));
+    when(mockRow1.getString("name")).thenReturn("table1");
+    when(mockRow2.getString("name")).thenReturn("table2");
 
     MockHttpResponse response = context.invoke(request);
 
     assertThat(response.getStatus()).isEqualTo(HttpStatus.SC_OK);
     String[] actual = new JsonMapper().readValue(response.getContentAsString(), String[].class);
-    assertThat(actual).containsExactlyElementsOf(result);
+    assertThat(actual).containsExactly("table1", "table2");
     verify(context.cqlService)
         .executePreparedStatement(any(), eq("CALL NodeOps.getTables(?)"), eq("ks1"));
   }
@@ -2066,5 +2225,16 @@ public class K8OperatorResourcesTest {
 
     verify(context.cqlService, never())
         .executePreparedStatement(any(), eq("CALL NodeOps.move(?, ?)"), eq("1234"), eq(true));
+  }
+
+  private void setpMockGetKeyspaces(Context context, String keyspaceName) throws Exception {
+    ResultSet mockKeyspacesResultSet = mock(ResultSet.class);
+    Row mockKeyspacesRow = mock(Row.class);
+
+    when(context.cqlService.executePreparedStatement(any(), eq("CALL NodeOps.getKeyspaces()")))
+        .thenReturn(mockKeyspacesResultSet);
+
+    when(mockKeyspacesResultSet.one()).thenReturn(mockKeyspacesRow);
+    when(mockKeyspacesRow.getList(0, String.class)).thenReturn(Arrays.asList(keyspaceName));
   }
 }

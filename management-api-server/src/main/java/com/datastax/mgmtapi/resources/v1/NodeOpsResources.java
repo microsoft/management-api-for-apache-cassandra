@@ -5,11 +5,10 @@
  */
 package com.datastax.mgmtapi.resources.v1;
 
-import static com.datastax.mgmtapi.resources.NodeOpsResources.handle;
-
-import com.datastax.mgmtapi.CqlService;
 import com.datastax.mgmtapi.ManagementApplication;
+import com.datastax.mgmtapi.resources.common.BaseResources;
 import com.datastax.mgmtapi.resources.helpers.ResponseTools;
+import com.datastax.mgmtapi.resources.models.RepairRequest;
 import com.datastax.oss.driver.api.core.cql.Row;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -28,14 +27,10 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
 @Path("/api/v1/ops/node")
-public class NodeOpsResources {
-
-  private final ManagementApplication app;
-  private final CqlService cqlService;
+public class NodeOpsResources extends BaseResources {
 
   public NodeOpsResources(ManagementApplication application) {
-    this.app = application;
-    this.cqlService = application.cqlService;
+    super(application);
   }
 
   @POST
@@ -59,7 +54,7 @@ public class NodeOpsResources {
             Response.accepted(
                     ResponseTools.getSingleRowStringResponse(
                         app.dbUnixSocketFile,
-                        cqlService,
+                        app.cqlService,
                         "CALL NodeOps.decommission(?, ?)",
                         force,
                         true))
@@ -86,7 +81,10 @@ public class NodeOpsResources {
         () ->
             Response.accepted(
                     ResponseTools.getSingleRowStringResponse(
-                        app.dbUnixSocketFile, cqlService, "CALL NodeOps.rebuild(?)", srcDatacenter))
+                        app.dbUnixSocketFile,
+                        app.cqlService,
+                        "CALL NodeOps.rebuild(?)",
+                        srcDatacenter))
                 .build());
   }
 
@@ -99,6 +97,9 @@ public class NodeOpsResources {
       content =
           @Content(
               mediaType = MediaType.APPLICATION_JSON,
+              // this should actually be a Response class object, but we don't have one. And a
+              // generic Map implementation here jsut results in a String typoe in the openAPI doc.
+              schema = @Schema(implementation = Map.class),
               examples =
                   @ExampleObject(
                       value =
@@ -108,7 +109,7 @@ public class NodeOpsResources {
     return handle(
         () -> {
           Row row =
-              cqlService
+              app.cqlService
                   .executePreparedStatement(
                       app.dbUnixSocketFile, "CALL NodeOps.getSchemaVersions()")
                   .one();
@@ -118,6 +119,51 @@ public class NodeOpsResources {
             schemaVersions = row.getMap(0, String.class, List.class);
           }
           return Response.ok(schemaVersions).build();
+        });
+  }
+
+  @POST
+  @Path("/repair")
+  @Produces(MediaType.TEXT_PLAIN)
+  @ApiResponse(
+      responseCode = "202",
+      description = "Job ID for successfully scheduled Cassandra repair request",
+      content =
+          @Content(
+              mediaType = MediaType.TEXT_PLAIN,
+              schema = @Schema(implementation = String.class),
+              examples = @ExampleObject(value = "repair-1234567")))
+  @ApiResponse(
+      responseCode = "400",
+      description = "Repair request missing Keyspace name",
+      content =
+          @Content(
+              mediaType = MediaType.TEXT_PLAIN,
+              schema = @Schema(implementation = String.class),
+              examples = @ExampleObject(value = "keyspaceName must be specified")))
+  @Operation(summary = "Execute a nodetool repair operation", operationId = "repair")
+  public Response repair(RepairRequest repairRequest) {
+    return handle(
+        () -> {
+          if (repairRequest.keyspaceName == null) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                .entity("keyspaceName must be specified")
+                .build();
+          }
+          return Response.accepted(
+                  ResponseTools.getSingleRowStringResponse(
+                      app.dbUnixSocketFile,
+                      app.cqlService,
+                      "CALL NodeOps.repair(?, ?, ?, ?, ?, ?, ?, ?)",
+                      repairRequest.keyspaceName,
+                      repairRequest.tables,
+                      repairRequest.full,
+                      true,
+                      null,
+                      null,
+                      null,
+                      null))
+              .build();
         });
   }
 }

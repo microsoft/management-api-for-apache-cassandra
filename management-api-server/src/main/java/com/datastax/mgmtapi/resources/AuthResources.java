@@ -5,13 +5,12 @@
  */
 package com.datastax.mgmtapi.resources;
 
-import static com.datastax.mgmtapi.resources.NodeOpsResources.handle;
-
-import com.datastax.mgmtapi.CqlService;
 import com.datastax.mgmtapi.ManagementApplication;
+import com.datastax.mgmtapi.resources.common.BaseResources;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
@@ -22,13 +21,10 @@ import javax.ws.rs.core.Response;
 import org.apache.commons.lang3.StringUtils;
 
 @Path("/api/v0/ops/auth")
-public class AuthResources {
-  private final ManagementApplication app;
-  private final CqlService cqlService;
+public class AuthResources extends BaseResources {
 
   public AuthResources(ManagementApplication application) {
-    this.app = application;
-    this.cqlService = application.cqlService;
+    super(application);
   }
 
   @POST
@@ -38,13 +34,18 @@ public class AuthResources {
   @ApiResponse(
       responseCode = "200",
       description = "Role created",
-      content = @Content(mediaType = MediaType.TEXT_PLAIN, examples = @ExampleObject(value = "OK")))
+      content =
+          @Content(
+              mediaType = MediaType.TEXT_PLAIN,
+              schema = @Schema(implementation = String.class),
+              examples = @ExampleObject(value = "OK")))
   @ApiResponse(
       responseCode = "400",
       description = "Username and/or password is empty",
       content =
           @Content(
               mediaType = MediaType.TEXT_PLAIN,
+              schema = @Schema(implementation = String.class),
               examples = @ExampleObject(value = "Username is empty")))
   public Response createRole(
       @QueryParam(value = "username") String name,
@@ -61,7 +62,7 @@ public class AuthResources {
             return Response.status(Response.Status.BAD_REQUEST.getStatusCode(), "Password is empty")
                 .build();
 
-          cqlService.executePreparedStatement(
+          app.cqlService.executePreparedStatement(
               app.dbUnixSocketFile,
               "CALL NodeOps.createRole(?,?,?,?)",
               name,

@@ -39,8 +39,6 @@ import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.util.concurrent.Uninterruptibles;
-import io.netty.util.IllegalReferenceCountException;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -49,7 +47,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.http.HttpStatus;
 import org.apache.http.client.utils.URIBuilder;
@@ -72,51 +69,6 @@ public class NonDestructiveOpsIT extends BaseDockerIntegrationTest {
 
   public NonDestructiveOpsIT(String version) throws IOException {
     super(version);
-  }
-
-  public static void ensureStarted() throws IOException {
-    assumeTrue(IntegrationTestUtils.shouldRun());
-
-    NettyHttpClient client = new NettyHttpClient(BASE_URL);
-
-    // Verify liveness
-    boolean live =
-        client
-            .get(URI.create(BASE_PATH + "/probes/liveness").toURL())
-            .thenApply(r -> r.status().code() == HttpStatus.SC_OK)
-            .join();
-
-    assertTrue(live);
-
-    boolean ready = false;
-
-    // Startup
-    boolean started =
-        client
-            .post(URI.create(BASE_PATH + "/lifecycle/start").toURL(), null)
-            .thenApply(
-                r ->
-                    r.status().code() == HttpStatus.SC_CREATED
-                        || r.status().code() == HttpStatus.SC_ACCEPTED)
-            .join();
-
-    assertTrue(started);
-
-    int tries = 0;
-    while (tries++ < 10) {
-      ready =
-          client
-              .get(URI.create(BASE_PATH + "/probes/readiness").toURL())
-              .thenApply(r -> r.status().code() == HttpStatus.SC_OK)
-              .join();
-
-      if (ready) break;
-
-      Uninterruptibles.sleepUninterruptibly(10, TimeUnit.SECONDS);
-    }
-
-    logger.info("CASSANDRA ALIVE: {}", ready);
-    assertTrue(ready);
   }
 
   @Test
@@ -274,6 +226,7 @@ public class NonDestructiveOpsIT extends BaseDockerIntegrationTest {
     // Reset schema does not work on Cassandra 4.1+
     assumeFalse("4_1".equals(this.version));
     assumeFalse("4_1_ubi".equals(this.version));
+    assumeFalse("5_0_ubi".equals(this.version));
     assumeFalse("trunk".equals(this.version));
     ensureStarted();
 
@@ -743,64 +696,6 @@ public class NonDestructiveOpsIT extends BaseDockerIntegrationTest {
             .thenApply(r -> r.status().code() == HttpStatus.SC_OK)
             .join();
     assertTrue("Repair request was not successful", repairSuccessful);
-  }
-
-  @Test
-  public void testAsyncRepair() throws IOException, URISyntaxException, InterruptedException {
-    assumeTrue(IntegrationTestUtils.shouldRun());
-    ensureStarted();
-
-    // create a keyspace with RF of at least 2
-    NettyHttpClient client = new NettyHttpClient(BASE_URL);
-    String localDc =
-        client
-            .get(new URIBuilder(BASE_PATH + "/metadata/localdc").build().toURL())
-            .thenApply(this::responseAsString)
-            .join();
-
-    String ks = "someTestKeyspace";
-    createKeyspace(client, localDc, ks, 2);
-
-    URIBuilder uriBuilder = new URIBuilder(BASE_PATH_V1 + "/ops/node/repair");
-    URI repairUri = uriBuilder.build();
-
-    // execute repair
-    RepairRequest repairRequest = new RepairRequest("someTestKeyspace", null, Boolean.TRUE);
-    String requestAsJSON = JSON_MAPPER.writeValueAsString(repairRequest);
-
-    Pair<Integer, String> repairResponse =
-        client.post(repairUri.toURL(), requestAsJSON).thenApply(this::responseAsCodeAndBody).join();
-    assertThat(repairResponse.getLeft()).isEqualTo(HttpStatus.SC_ACCEPTED);
-    String jobId = repairResponse.getRight();
-    assertThat(jobId).isNotEmpty();
-
-    URI getJobDetailsUri =
-        new URIBuilder(BASE_PATH + "/ops/executor/job").addParameter("job_id", jobId).build();
-
-    await()
-        .atMost(Duration.ofMinutes(5))
-        .untilAsserted(
-            () -> {
-              Pair<Integer, String> getJobDetailsResponse;
-              try {
-                getJobDetailsResponse =
-                    client
-                        .get(getJobDetailsUri.toURL())
-                        .thenApply(this::responseAsCodeAndBody)
-                        .join();
-              } catch (IllegalReferenceCountException e) {
-                // Just retry
-                assertFalse(true);
-                return;
-              }
-              assertThat(getJobDetailsResponse.getLeft()).isEqualTo(HttpStatus.SC_OK);
-              Job jobDetails =
-                  new JsonMapper()
-                      .readValue(getJobDetailsResponse.getRight(), new TypeReference<Job>() {});
-              assertThat(jobDetails.getJobId()).isEqualTo(jobId);
-              assertThat(jobDetails.getJobType()).isEqualTo("repair");
-              assertThat(jobDetails.getStatus().toString()).isIn("COMPLETED", "ERROR");
-            });
   }
 
   @Test

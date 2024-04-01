@@ -16,6 +16,38 @@ Changelog for Management API, new PRs should update the `main / unreleased` sect
 ## v0.1.70 (2023-10-17)
 * [BUGFIX]  [#411](https://github.com/k8ssandra/management-api-for-apache-cassandra/pull/411) Serialize long types as Strings to avoid float64 conversion
 
+## v0.1.74 (2024-03-21)
+* [FEATURE] [#453](https://github.com/k8ssandra/management-api-for-apache-cassandra/issues/453) Use a longer driver timeout for drain
+* [FEATURE] [#455](https://github.com/k8ssandra/management-api-for-apache-cassandra/issues/455) Add DSE 6.8.43 to the build matrix
+* [FEATURE] [#458](https://github.com/k8ssandra/management-api-for-apache-cassandra/issues/458) Update MCAC to v0.3.5
+* [ENHANCEMENT] [#441](https://github.com/k8ssandra/management-api-for-apache-cassandra/issues/441) Replace ShellUtils arbitrary command execution
+
+## v0.1.73 (2024-02-20)
+
+* [FEATURE] [#449](https://github.com/k8ssandra/management-api-for-apache-cassandra/issues/449) Add DSE 6.8.42 to the build matrix
+* [FEATURE] [#451](https://github.com/k8ssandra/management-api-for-apache-cassandra/issues/451) Add Cassandra 4.1.4 to the build matrix
+* [BUGFIX] [#448](https://github.com/k8ssandra/management-api-for-apache-cassandra/issues/448) Scrub did not work when targetting all the keyspaces
+* [BUGFIX] [#437](https://github.com/k8ssandra/management-api-for-apache-cassandra/issues/437) Compaction threw NPE if used without target TokenRange
+
+## v0.1.72 (2023-12-19)
+
+* [BUGFIX]  [#434](https://github.com/k8ssandra/management-api-for-apache-cassandra/issues/434) Temporarily disable arm64 support for DSE images
+* [FEATURE] [#696](https://github.com/thelastpickle/cassandra-medusa/issues/696) Add endpoint for rebuilding DSE search indices
+* [FEATURE] [#439](https://github.com/k8ssandra/management-api-for-apache-cassandra/issues/439) Add DSE 6.8.41 to the build matrix
+
+## v0.1.71 (2023-11-16)
+* [CHANGE]  [#425](https://github.com/k8ssandra/management-api-for-apache-cassandra/issues/425) Shade Jackson libraries in agents
+* [BUGFIX]  [#413](https://github.com/k8ssandra/management-api-for-apache-cassandra/issues/413) UBI8 images do not terminate correctly
+* [BUGFIX]  [#360](https://github.com/k8ssandra/management-api-for-apache-cassandra/issues/360) Support Cassandra 5.0-alpha1
+* [BUGFIX]  [#415](https://github.com/k8ssandra/management-api-for-apache-cassandra/issues/415) Some jvm_* metrics aren't labelled correctly
+* [BUGFIX]  [#422](https://github.com/k8ssandra/management-api-for-apache-cassandra/issues/422) Metrics endpoint fails to start for some DSE images
+* [FEATURE] [#398](https://github.com/k8ssandra/management-api-for-apache-cassandra/issues/398) Make Management API port configurable
+* [FEATURE] [#419](https://github.com/k8ssandra/management-api-for-apache-cassandra/issues/419) Add DSE 6.8.40 to the build matrix
+* [FEATURE] [#397](https://github.com/k8ssandra/management-api-for-apache-cassandra/issues/397) Add Cassandra 4.0.11, 4.1.3 5.0-alpha2
+
+## v0.1.70 (2023-10-17)
+* [BUGFIX]  [#411](https://github.com/k8ssandra/management-api-for-apache-cassandra/pull/411) Serialize long types as Strings to avoid float64 conversion
+
 ## v0.1.69 (2023-10-13)
 * [CHANGE]  [#400](https://github.com/k8ssandra/management-api-for-apache-cassandra/issues/400) Ensure curl and wget are installed in images
 * [FEATURE] [#326](https://github.com/k8ssandra/management-api-for-apache-cassandra/issues/326) Provide topology endpoints in OpenAPI client

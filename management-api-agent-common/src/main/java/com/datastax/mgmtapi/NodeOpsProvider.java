@@ -20,12 +20,12 @@ import com.datastax.oss.driver.api.querybuilder.schema.CreateTable;
 import com.datastax.oss.driver.api.querybuilder.schema.CreateTableWithOptions;
 import com.datastax.oss.driver.api.querybuilder.schema.OngoingPartitionKey;
 import com.datastax.oss.driver.internal.core.metadata.schema.parsing.DataTypeCqlNameParser;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.Maps;
+import io.k8ssandra.shaded.com.fasterxml.jackson.core.JsonProcessingException;
+import io.k8ssandra.shaded.com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -99,6 +99,7 @@ public class NodeOpsProvider {
     resultMap.put("submit_time", String.valueOf(jobWithId.getSubmitTime()));
     resultMap.put("end_time", String.valueOf(jobWithId.getFinishedTime()));
     if (jobWithId.getStatus() == Job.JobStatus.ERROR) {
+      logger.error("Task " + jobId + " execution failed", jobWithId.getError());
       resultMap.put("error", jobWithId.getError().getLocalizedMessage());
     }
 
@@ -568,23 +569,32 @@ public class NodeOpsProvider {
       @RpcParam(name = "async") boolean async)
       throws InterruptedException, ExecutionException, IOException {
     logger.debug("Scrubbing tables on keyspace {}", keyspaceName);
+    List<String> keyspaces = Collections.singletonList(keyspaceName);
+    if (keyspaceName != null && keyspaceName.toUpperCase().equals("ALL")) {
+      keyspaces = ShimLoader.instance.get().getStorageService().getKeyspaces();
+    }
+
+    final List<String> keyspaceList = keyspaces;
+
     Runnable scrubOperation =
         () -> {
-          try {
-            ShimLoader.instance
-                .get()
-                .getStorageService()
-                .scrub(
-                    disableSnapshot,
-                    skipCorrupted,
-                    checkData,
-                    reinsertOverflowedTTL,
-                    jobs,
-                    keyspaceName,
-                    tables.toArray(new String[] {}));
-          } catch (IOException | ExecutionException | InterruptedException e) {
-            logger.error("Failed to execute scrub: ", e);
-            throw new RuntimeException(e);
+          for (String keyspace : keyspaceList) {
+            try {
+              ShimLoader.instance
+                  .get()
+                  .getStorageService()
+                  .scrub(
+                      disableSnapshot,
+                      skipCorrupted,
+                      checkData,
+                      reinsertOverflowedTTL,
+                      jobs,
+                      keyspace,
+                      tables.toArray(new String[] {}));
+            } catch (IOException | ExecutionException | InterruptedException e) {
+              logger.error("Failed to execute scrub: ", e);
+              throw new RuntimeException(e);
+            }
           }
         };
     return submitJob(OperationType.SCRUB.name(), scrubOperation, async);

@@ -2,11 +2,6 @@ name: Nightly Image Publish
 
 
 on:
-  schedule:
-    # * is a special character in YAML so you have to quote this string
-    # disable for fork
-    #- cron:  '4 20 * * *' 
-    - cron:  '0 5 31 2 *'
   workflow_dispatch:
 
 jobs:

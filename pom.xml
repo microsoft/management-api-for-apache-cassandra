@@ -8,29 +8,29 @@
 -->
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
-  <groupId>com.datastax</groupId>
+  <groupId>io.k8ssandra</groupId>
   <artifactId>datastax-mgmtapi</artifactId>
   <version>${revision}</version>
   <packaging>pom</packaging>
   <name>DataStax Management API for Apache Cassandra</name>
   <properties>
     <build.version.file>build_version.sh</build.version.file>
-    <revision>0.1.2-SNAPSHOT</revision>
+    <revision>0.1.0-SNAPSHOT</revision>
     <driver.version>4.15.0</driver.version>
-    <cassandra3.version>3.11.14</cassandra3.version>
-    <cassandra4.version>4.0.10</cassandra4.version>
-    <docker.java.version>3.2.13</docker.java.version>
+    <cassandra4.version>4.0.17</cassandra4.version>
+    <docker.java.version>3.3.6</docker.java.version>
     <junit.version>4.13.2</junit.version>
+    <assertj.version>3.17.2</assertj.version>
     <bytebuddy.version>1.12.19</bytebuddy.version>
     <build.version.file>build_version.sh</build.version.file>
-    <slf4j.version>1.7.25</slf4j.version>
-    <logback.version>1.2.9</logback.version>
-    <netty.version>4.1.78.Final</netty.version>
+    <slf4j.version>2.0.9</slf4j.version>
+    <logback.version>1.4.14</logback.version>
+    <netty.version>4.1.112.Final</netty.version>
     <mockito.version>3.5.13</mockito.version>
     <prometheus.version>0.16.0</prometheus.version>
     <!-- This old version is used by Cassandra 4.x -->
     <dropwizard-metrics.version>3.1.5</dropwizard-metrics.version>
-    <jackson-dataformat.version>2.13.2</jackson-dataformat.version>
+    <jackson-dataformat.version>2.15.3</jackson-dataformat.version>
     <coveo.format.version>2.9</coveo.format.version>
     <xml.format.version>3.2.2</xml.format.version>
     <mycila.license.version>4.1</mycila.license.version>
@@ -50,12 +50,14 @@
         <dseIncluded>false</dseIncluded>
       </properties>
       <modules>
+        <module>management-api-agent-shaded-libs</module>
         <module>management-api-common</module>
         <module>management-api-agent-common</module>
-        <module>management-api-agent-3.x</module>
         <module>management-api-agent-4.x</module>
         <module>management-api-agent-4.1.x</module>
+        <module>management-api-agent-5.0.x</module>
         <module>management-api-server</module>
+        <module>management-api-test</module>
       </modules>
     </profile>
     <profile>
@@ -67,13 +69,16 @@
         <dseIncluded>true</dseIncluded>
       </properties>
       <modules>
+        <module>management-api-agent-shaded-libs</module>
         <module>management-api-common</module>
         <module>management-api-agent-common</module>
-        <module>management-api-agent-3.x</module>
         <module>management-api-agent-4.x</module>
         <module>management-api-agent-4.1.x</module>
+        <module>management-api-agent-5.0.x</module>
         <module>management-api-agent-dse-6.8</module>
+        <module>management-api-agent-dse-6.9</module>
         <module>management-api-server</module>
+        <module>management-api-test</module>
       </modules>
     </profile>
     <profile>
@@ -85,6 +90,47 @@
         <dseIncluded>false</dseIncluded>
       </properties>
       <modules>
+        <module>management-api-agent-shaded-libs</module>
+        <module>management-api-common</module>
+        <module>management-api-agent-common</module>
+        <module>management-api-agent-4.x</module>
+        <module>management-api-agent-4.1.x</module>
+        <module>management-api-agent-5.0.x</module>
+        <module>management-api-server</module>
+        <module>management-api-test</module>
+      </modules>
+    </profile>
+    <profile>
+      <id>hcd</id>
+      <activation>
+        <activeByDefault>false</activeByDefault>
+      </activation>
+      <properties>
+        <dseIncluded>true</dseIncluded>
+      </properties>
+      <modules>
+        <module>management-api-agent-shaded-libs</module>
+        <module>management-api-common</module>
+        <module>management-api-agent-common</module>
+        <module>management-api-agent-4.x</module>
+        <module>management-api-agent-4.1.x</module>
+        <module>management-api-agent-5.0.x</module>
+        <module>management-api-agent-hcd-cc4</module>
+        <module>management-api-agent-hcd-cc5</module>
+        <module>management-api-server</module>
+        <module>management-api-test</module>
+      </modules>
+    </profile>
+    <profile>
+      <id>311</id>
+      <activation>
+        <activeByDefault>false</activeByDefault>
+      </activation>
+      <properties>
+        <dseIncluded>false</dseIncluded>
+      </properties>
+      <modules>
+        <module>management-api-agent-shaded-libs</module>
         <module>management-api-common</module>
         <module>management-api-agent-common</module>
         <module>management-api-agent-3.x</module>
@@ -92,6 +138,7 @@
         <module>management-api-agent-4.1.x</module>
         <module>management-api-agent-5.0.x</module>
         <module>management-api-server</module>
+        <module>management-api-test</module>
       </modules>
     </profile>
   </profiles>

@@ -33,7 +33,6 @@ import org.apache.cassandra.transport.messages.ReadyMessage;
 import org.apache.cassandra.transport.messages.StartupMessage;
 import org.apache.cassandra.transport.messages.SupportedMessage;
 import org.apache.cassandra.utils.JVMStabilityInspector;
-import org.apache.cassandra.utils.MonotonicClock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -60,12 +59,9 @@ public class UnixSocketServer50x {
         ChannelPipeline pipeline = channel.pipeline();
 
         pipeline.addLast(ENVELOPE_ENCODER, Envelope.Encoder.instance);
+        final _ConnectionFactory factory = new _ConnectionFactory(connectionTracker);
         pipeline.addLast(
-            INITIAL_HANDLER,
-            new PipelineChannelInitializer(
-                new Envelope.Decoder(),
-                (channel1, version) ->
-                    new UnixSocketConnection(channel1, version, connectionTracker)));
+            INITIAL_HANDLER, new PipelineChannelInitializer(new Envelope.Decoder(), factory));
         /**
          * The exceptionHandler will take care of handling exceptionCaught(...) events while still
          * running on the same EventLoop as all previous added handlers in the pipeline. This is
@@ -86,7 +82,6 @@ public class UnixSocketServer50x {
         throws Exception {
       final Message.Response response;
       final UnixSocketConnection connection;
-      long queryStartNanoTime = System.nanoTime();
 
       try {
         assert request.connection() instanceof UnixSocketConnection;
@@ -100,7 +95,8 @@ public class UnixSocketServer50x {
         // logger.info("Executing {} {} {}", request, connection.getVersion(),
         // request.getStreamId());
 
-        Message.Response r = request.execute(qstate, queryStartNanoTime);
+        Message.Response r =
+            request.execute(qstate, Dispatcher.RequestTime.forImmediateExecution());
 
         // UnixSocket has no auth
         response = r instanceof AuthenticateMessage ? new ReadyMessage() : r;
@@ -286,10 +282,12 @@ public class UnixSocketServer50x {
 
             promise = new VoidChannelPromise(ctx.channel(), false);
 
-            long approxStartTimeNanos = MonotonicClock.Global.approxTime.now();
             Message.Response response =
                 Dispatcher.processRequest(
-                    ctx.channel(), startup, Overload.NONE, approxStartTimeNanos);
+                    ctx.channel(),
+                    startup,
+                    Overload.NONE,
+                    Dispatcher.RequestTime.forImmediateExecution());
 
             if (response.type.equals(Message.Type.AUTHENTICATE))
               // bypass authentication
@@ -313,6 +311,25 @@ public class UnixSocketServer50x {
       } finally {
         inbound.release();
       }
+    }
+  }
+
+  public static class _ConnectionFactory implements Connection.Factory {
+
+    private final Server.ConnectionTracker connectionTracker;
+
+    public _ConnectionFactory(Server.ConnectionTracker connectionTracker) {
+      this.connectionTracker = connectionTracker;
+    }
+
+    @Override
+    public Connection newConnection(Channel chnl, ProtocolVersion pv) {
+      if (chnl.remoteAddress() != null) {
+        // need to wrap the channel
+        Channel channelWraper = new NettyChannelWrapper(chnl);
+        return new UnixSocketConnection(channelWraper, pv, connectionTracker);
+      }
+      return new UnixSocketConnection(chnl, pv, connectionTracker);
     }
   }
 }

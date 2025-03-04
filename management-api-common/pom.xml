@@ -9,27 +9,30 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <parent>
-    <groupId>com.datastax</groupId>
+    <groupId>io.k8ssandra</groupId>
     <artifactId>datastax-mgmtapi</artifactId>
     <version>${revision}</version>
   </parent>
-  <groupId>com.datastax</groupId>
+  <version>${revision}</version>
   <artifactId>datastax-mgmtapi-common</artifactId>
   <dependencies>
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-api</artifactId>
       <version>${slf4j.version}</version>
+      <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>ch.qos.logback</groupId>
       <artifactId>logback-core</artifactId>
       <version>${logback.version}</version>
+      <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>ch.qos.logback</groupId>
       <artifactId>logback-classic</artifactId>
       <version>${logback.version}</version>
+      <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>io.netty</groupId>
@@ -40,7 +43,7 @@
     <dependency>
       <groupId>org.apache.cassandra</groupId>
       <artifactId>cassandra-all</artifactId>
-      <version>${cassandra3.version}</version>
+      <version>${cassandra4.version}</version>
       <exclusions>
         <exclusion>
           <groupId>commons-codec</groupId>
@@ -142,6 +145,7 @@
                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                   <manifestEntries>
                     <Premain-Class>com.datastax.mgmtapi.service.Cli</Premain-Class>
+                    <Implementation-Version>${project.version}</Implementation-Version>
                   </manifestEntries>
                 </transformer>
               </transformers>

@@ -5,8 +5,8 @@
  */
 package io.k8ssandra.metrics.config;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
 import io.k8ssandra.metrics.builder.relabel.RelabelSpec;
+import io.k8ssandra.shaded.com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -20,6 +20,9 @@ public class Configuration {
 
   @JsonProperty("labels")
   private LabelConfiguration labels;
+
+  @JsonProperty("extended_metrics_disabled")
+  private boolean extendedDisabled;
 
   public Configuration() {
     relabels = new ArrayList<>();
@@ -43,5 +46,13 @@ public class Configuration {
 
   public void setLabels(LabelConfiguration labels) {
     this.labels = labels;
+  }
+
+  public boolean isExtendedDisabled() {
+    return extendedDisabled;
+  }
+
+  public void setExtendedDisabled(boolean extendedDisabled) {
+    this.extendedDisabled = extendedDisabled;
   }
 }

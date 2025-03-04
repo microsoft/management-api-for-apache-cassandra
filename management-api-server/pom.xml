@@ -9,25 +9,25 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <parent>
-    <groupId>com.datastax</groupId>
+    <groupId>io.k8ssandra</groupId>
     <artifactId>datastax-mgmtapi</artifactId>
     <version>${revision}</version>
   </parent>
-  <groupId>com.datastax</groupId>
+  <version>${revision}</version>
   <artifactId>datastax-mgmtapi-server</artifactId>
   <properties>
-    <rsapi.version>2.1.1</rsapi.version>
     <guava.version>30.1.1-jre</guava.version>
     <airline.version>2.7.0</airline.version>
-    <jaxrs.version>2.1.6</jaxrs.version>
-    <resteasy.version>4.5.9.Final</resteasy.version>
+    <jaxrs.version>2.2.19</jaxrs.version>
+    <resteasy.version>6.2.10.Final</resteasy.version>
     <awaitility.version>4.0.3</awaitility.version>
     <assertj.version>3.17.2</assertj.version>
-    <servelet.version>3.1.0</servelet.version>
+    <servelet.version>6.1.0</servelet.version>
+    <commons.io.version>2.17.0</commons.io.version>
   </properties>
   <dependencies>
     <dependency>
-      <groupId>com.datastax</groupId>
+      <groupId>io.k8ssandra</groupId>
       <artifactId>datastax-mgmtapi-common</artifactId>
       <version>${project.version}</version>
     </dependency>
@@ -47,9 +47,9 @@
       <version>${logback.version}</version>
     </dependency>
     <dependency>
-      <groupId>javax.ws.rs</groupId>
-      <artifactId>javax.ws.rs-api</artifactId>
-      <version>${rsapi.version}</version>
+      <groupId>commons-io</groupId>
+      <artifactId>commons-io</artifactId>
+      <version>${commons.io.version}</version>
     </dependency>
     <dependency>
       <groupId>com.google.guava</groupId>
@@ -63,7 +63,7 @@
     </dependency>
     <dependency>
       <groupId>io.swagger.core.v3</groupId>
-      <artifactId>swagger-jaxrs2</artifactId>
+      <artifactId>swagger-jaxrs2-jakarta</artifactId>
       <version>${jaxrs.version}</version>
     </dependency>
     <dependency>
@@ -87,8 +87,8 @@
       <version>${driver.version}</version>
     </dependency>
     <dependency>
-      <groupId>javax.servlet</groupId>
-      <artifactId>javax.servlet-api</artifactId>
+      <groupId>jakarta.servlet</groupId>
+      <artifactId>jakarta.servlet-api</artifactId>
       <version>${servelet.version}</version>
     </dependency>
     <dependency>
@@ -175,7 +175,7 @@
               <target>
                 <condition property="cassandra.bin.exists">
                   <resourceexists>
-                    <file file=".cassandra-bin/apache-cassandra-${cassandra3.version}/bin/cassandra"/>
+                    <file file=".cassandra-bin/apache-cassandra-${cassandra4.version}/bin/cassandra"/>
                   </resourceexists>
                 </condition>
               </target>
@@ -191,9 +191,9 @@
             <configuration>
               <target unless="cassandra.bin.exists">
                 <mkdir dir=".cassandra-bin"/>
-                <get src="https://archive.apache.org/dist/cassandra/${cassandra3.version}/apache-cassandra-${cassandra3.version}-bin.tar.gz" dest=".cassandra-bin/"/>
-                <untar src=".cassandra-bin/apache-cassandra-${cassandra3.version}-bin.tar.gz" dest=".cassandra-bin/" compression="gzip"/>
-                <chmod file=".cassandra-bin/apache-cassandra-${cassandra3.version}/bin/cassandra" perm="777"/>
+                <get src="https://archive.apache.org/dist/cassandra/${cassandra4.version}/apache-cassandra-${cassandra4.version}-bin.tar.gz" dest=".cassandra-bin/"/>
+                <untar src=".cassandra-bin/apache-cassandra-${cassandra4.version}-bin.tar.gz" dest=".cassandra-bin/" compression="gzip"/>
+                <chmod file=".cassandra-bin/apache-cassandra-${cassandra4.version}/bin/cassandra" perm="777"/>
               </target>
               <skip>${skipTests}</skip>
             </configuration>
@@ -210,33 +210,16 @@
           <systemPropertyVariables>
             <dseIncluded>${dseIncluded}</dseIncluded>
             <dockerFileRoot>${basedir}/..</dockerFileRoot>
-            <CASSANDRA_HOME>${basedir}/.cassandra-bin/apache-cassandra-${cassandra3.version}</CASSANDRA_HOME>
+            <CASSANDRA_HOME>${basedir}/.cassandra-bin/apache-cassandra-${cassandra4.version}</CASSANDRA_HOME>
           </systemPropertyVariables>
           <environmentVariables>
-            <JVM_EXTRA_OPTS>-javaagent:${basedir}/../management-api-agent/target/datastax-mgmtapi-agent-3.x-${project.version}.jar</JVM_EXTRA_OPTS>
+            <JVM_EXTRA_OPTS>-javaagent:${basedir}/../management-api-agent/target/datastax-mgmtapi-agent-4.x-${project.version}.jar</JVM_EXTRA_OPTS>
           </environmentVariables>
           <forkCount>1</forkCount>
           <threadCount>1</threadCount>
           <reuseForks>true</reuseForks>
+          <skipTests>${skip.surefire.tests}</skipTests>
         </configuration>
-      </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-failsafe-plugin</artifactId>
-        <configuration>
-          <systemPropertyVariables>
-            <dseIncluded>${dseIncluded}</dseIncluded>
-            <dockerFileRoot>${basedir}/..</dockerFileRoot>
-          </systemPropertyVariables>
-        </configuration>
-        <executions>
-          <execution>
-            <goals>
-              <goal>integration-test</goal>
-              <goal>verify</goal>
-            </goals>
-          </execution>
-        </executions>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
@@ -282,6 +265,9 @@
                 <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                   <mainClass>com.datastax.mgmtapi.Cli</mainClass>
+                  <manifestEntries>
+                    <Implementation-Version>${project.version}</Implementation-Version>
+                  </manifestEntries>
                 </transformer>
               </transformers>
             </configuration>
@@ -290,7 +276,7 @@
       </plugin>
       <plugin>
         <groupId>io.swagger.core.v3</groupId>
-        <artifactId>swagger-maven-plugin</artifactId>
+        <artifactId>swagger-maven-plugin-jakarta</artifactId>
         <version>${jaxrs.version}</version>
         <configuration>
           <outputFileName>openapi</outputFileName>
@@ -310,6 +296,18 @@
           </execution>
         </executions>
       </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>3.4.2</version>
+        <executions>
+          <execution>
+            <goals>
+              <goal>test-jar</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
     </plugins>
   </build>
   <profiles>
@@ -317,20 +315,63 @@
       <activation>
         <activeByDefault>false</activeByDefault>
       </activation>
-      <id>clientgen</id>
-      <properties>
-        <openapi.tools.version>5.3.0</openapi.tools.version>
-      </properties>
+      <id>go-clientgen</id>
       <build>
         <plugins>
           <plugin>
             <groupId>org.openapitools</groupId>
             <artifactId>openapi-generator-maven-plugin</artifactId>
-            <version>${openapi.tools.version}</version>
+            <version>7.0.0-beta</version>
             <configuration>
               <inputSpec>${project.basedir}/doc/openapi.json</inputSpec>
               <generatorName>go</generatorName>
               <skip>${skipOpenApi}</skip>
+              <output>${project.build.directory}/generated-sources/openapi/go-client</output>
+            </configuration>
+            <executions>
+              <execution>
+                <phase>process-classes</phase>
+                <goals>
+                  <goal>generate</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <profile>
+      <activation>
+        <activeByDefault>true</activeByDefault>
+      </activation>
+      <id>java-clientgen</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.openapitools</groupId>
+            <artifactId>openapi-generator-maven-plugin</artifactId>
+            <version>7.0.0-beta</version>
+            <configuration>
+              <inputSpec>${project.basedir}/doc/openapi.json</inputSpec>
+              <generatorName>java</generatorName>
+              <skip>${skipOpenApi}</skip>
+              <output>${project.build.directory}/generated-sources/openapi/java-client</output>
+              <apiPackage>com.datastax.mgmtapi.client.api</apiPackage>
+              <modelPackage>com.datastax.mgmtapi.client.model</modelPackage>
+              <invokerPackage>com.datastax.mgmtapi.client.invoker</invokerPackage>
+              <groupId>${project.groupId}</groupId>
+              <artifactId>datastax-mgmtapi-client-openapi</artifactId>
+              <artifactVersion>${project.version}</artifactVersion>
+              <!-- The following configuration options are documented here:
+              https://openapi-generator.tech/docs/generators/java -->
+              <configOptions>
+                <artifactDescription>OpenAPI generated client for Management API for Apache Cassandra</artifactDescription>
+                <artifactUrl>https://github.com/k8ssandra/managemenr-api-for-apache-cassandra</artifactUrl>
+                <scmConnection>https://github.com/k8ssandra/management-api-for-apache-cassandra.git</scmConnection>
+                <scmDeveloperConnection>https://github.com/k8ssandra/management-api-for-apache-cassandra.git</scmDeveloperConnection>
+                <scmUrl>https://github.com/k8ssandra/management-api-for-apache-cassandra</scmUrl>
+                <licenseName>Apache-2.0</licenseName>
+              </configOptions>
             </configuration>
             <executions>
               <execution>

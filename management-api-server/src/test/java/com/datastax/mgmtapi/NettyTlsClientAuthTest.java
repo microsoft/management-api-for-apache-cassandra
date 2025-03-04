@@ -8,7 +8,10 @@ package com.datastax.mgmtapi;
 import static org.jboss.resteasy.test.TestPortProvider.generateURL;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeTrue;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 import com.datastax.mgmtapi.helpers.IntegrationTestUtils;
 import com.datastax.mgmtapi.helpers.NettyHttpClient;
@@ -20,6 +23,7 @@ import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
+import io.netty.channel.DefaultEventLoopGroup;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.channel.nio.NioEventLoopGroup;
@@ -37,10 +41,14 @@ import io.netty.handler.ssl.ClientAuth;
 import io.netty.handler.ssl.IdentityCipherSuiteFilter;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
+import io.netty.handler.ssl.util.InsecureTrustManagerFactory;
+import io.netty.handler.ssl.util.SelfSignedCertificate;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -56,6 +64,7 @@ import org.junit.Assert;
 import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
+import org.mockito.Mockito;
 
 public class NettyTlsClientAuthTest {
   static String BASE_URI = generateURL("");
@@ -389,6 +398,111 @@ public class NettyTlsClientAuthTest {
       cli.stop();
       FileUtils.deleteQuietly(new File(cassSock));
       FileUtils.deleteQuietly(new File(mgmtSock));
+    }
+  }
+
+  @Test
+  public void testHotReloadDetection() throws Exception {
+    assumeTrue(IntegrationTestUtils.shouldRun());
+
+    String mgmtSock = SocketUtils.makeValidUnixSocketFile(null, "management-netty-tls-mgmt");
+    new File(mgmtSock).deleteOnExit();
+    String cassSock = SocketUtils.makeValidUnixSocketFile(null, "management-netty-tls-cass");
+    new File(cassSock).deleteOnExit();
+
+    Path tempDirectory = Files.createTempDirectory("reload-test");
+
+    List<String> extraArgs =
+        IntegrationTestUtils.getExtraArgs(
+            NettyTlsClientAuthTest.class, "", temporaryFolder.getRoot());
+
+    File trustCertFile =
+        IntegrationTestUtils.getFile(getClass(), "mutual_auth_client_cert_chain.pem");
+    File serverKeyFile = IntegrationTestUtils.getFile(getClass(), "mutual_auth_server.key");
+    File serverCrtFile = IntegrationTestUtils.getFile(getClass(), "mutual_auth_server.crt");
+
+    // Copy TLS files to temp directory
+    Path trustCertCopy =
+        Files.copy(trustCertFile.toPath(), tempDirectory.resolve(trustCertFile.toPath()));
+    Path keyCopy =
+        Files.copy(serverKeyFile.toPath(), tempDirectory.resolve(serverKeyFile.toPath()));
+    Path crtCopy =
+        Files.copy(serverCrtFile.toPath(), tempDirectory.resolve(serverCrtFile.toPath()));
+
+    Cli cli =
+        new Cli(
+            Lists.newArrayList("file://" + mgmtSock, BASE_URI),
+            IntegrationTestUtils.getCassandraHome(),
+            cassSock,
+            false,
+            extraArgs,
+            trustCertCopy.toFile().getAbsolutePath(),
+            crtCopy.toFile().getAbsolutePath(),
+            keyCopy.toFile().getAbsolutePath());
+    cli.preflightChecks();
+    Cli spy = Mockito.spy(cli);
+    spy.createSSLContext();
+    spy.createSSLWatcher();
+
+    verify(spy, times(1)).createSSLContext();
+    verify(spy, times(1)).createSSLWatcher();
+
+    // Modify files..
+    Files.copy(trustCertFile.toPath(), tempDirectory.resolve(trustCertFile.toPath()));
+
+    verify(spy, Mockito.timeout(1000)).createSSLContext();
+  }
+
+  @Test(expected = SSLException.class)
+  public void testSSLHandlerReplace() throws Throwable {
+    EventLoopGroup group = new DefaultEventLoopGroup(1);
+    Channel sc = null;
+
+    SelfSignedCertificate cert = new SelfSignedCertificate();
+
+    SslContext sslClientCtx =
+        SslContextBuilder.forClient()
+            .trustManager(InsecureTrustManagerFactory.INSTANCE)
+            .keyManager(cert.key(), cert.cert())
+            .build();
+
+    SslContext sslServerCtx =
+        SslContextBuilder.forServer(cert.key(), cert.cert())
+            .trustManager(InsecureTrustManagerFactory.INSTANCE)
+            .clientAuth(ClientAuth.REQUIRE)
+            .build();
+
+    File trustCertFile = IntegrationTestUtils.getFile(getClass(), "mutual_auth_ca.pem");
+    File serverKeyFile = IntegrationTestUtils.getFile(getClass(), "mutual_auth_server.key");
+    File serverCrtFile = IntegrationTestUtils.getFile(getClass(), "mutual_auth_server.crt");
+
+    SslContext refreshSslServerCtx =
+        SslContextBuilder.forServer(serverCrtFile, serverKeyFile, null)
+            .clientAuth(ClientAuth.REQUIRE)
+            .trustManager(trustCertFile)
+            .clientAuth(ClientAuth.REQUIRE)
+            .build();
+
+    NettyJaxrsTLSServer netty = new NettyJaxrsTLSServer(sslServerCtx);
+    ResteasyDeployment deployment = new ResteasyDeploymentImpl();
+    netty.setDeployment(deployment);
+    netty.setPort(TestPortProvider.getPort());
+    netty.setRootResourcePath("");
+    netty.setSecurityDomain(null);
+    netty.start();
+    deployment.getRegistry().addSingletonResource(new NettyHttpOverIPCTest.Resource());
+
+    try {
+      clientCall(sslClientCtx);
+    } catch (SSLException e) {
+      fail();
+    }
+
+    try {
+      netty.setSslContext(refreshSslServerCtx);
+      clientCall(sslClientCtx); // Now we should get an exception
+    } finally {
+      netty.stop();
     }
   }
 }

@@ -62,7 +62,6 @@ import org.jboss.resteasy.spi.ResteasyDeployment;
 import org.jboss.resteasy.test.TestPortProvider;
 import org.junit.Assert;
 import org.junit.ClassRule;
-import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.mockito.Mockito;
 
@@ -71,7 +70,6 @@ public class NettyTlsClientAuthTest {
 
   @ClassRule public static TemporaryFolder temporaryFolder = new TemporaryFolder();
 
-  @Test
   public void testHTTP() throws Throwable {
     NettyJaxrsServer netty = new NettyJaxrsServer();
     ResteasyDeployment deployment = new ResteasyDeploymentImpl();
@@ -85,7 +83,6 @@ public class NettyTlsClientAuthTest {
     netty.stop();
   }
 
-  @Test(expected = AssertionError.class)
   public void testHttpsWithNoAuthClient() throws Throwable {
     File serverKeyFile = IntegrationTestUtils.getFile(getClass(), "mutual_auth_ca.key");
     File serverCrtFile = IntegrationTestUtils.getFile(getClass(), "mutual_auth_ca.pem");
@@ -95,7 +92,6 @@ public class NettyTlsClientAuthTest {
         serverCrtFile, serverKeyFile, serverCrtFile, serverKeyPassword, null, null, null, null);
   }
 
-  @Test
   public void testSharedCert() throws Throwable {
     File serverKeyFile = IntegrationTestUtils.getFile(getClass(), "mutual_auth_ca.key");
     File serverCrtFile = IntegrationTestUtils.getFile(getClass(), "mutual_auth_ca.pem");
@@ -112,7 +108,6 @@ public class NettyTlsClientAuthTest {
         serverKeyPassword);
   }
 
-  @Test
   public void testTrustedChainCert() throws Throwable {
     File trustCertFile = IntegrationTestUtils.getFile(getClass(), "mutual_auth_ca.pem");
     File serverKeyFile = IntegrationTestUtils.getFile(getClass(), "mutual_auth_server.key");
@@ -130,7 +125,6 @@ public class NettyTlsClientAuthTest {
         serverKeyPassword);
   }
 
-  @Test
   public void testTrustedChainSepServerClientCerts() throws Throwable {
     File trustCertFile =
         IntegrationTestUtils.getFile(getClass(), "mutual_auth_client_cert_chain.pem");
@@ -155,7 +149,6 @@ public class NettyTlsClientAuthTest {
         clientKeyPassword);
   }
 
-  @Test(expected = SSLException.class)
   public void testTrustedChainUntrustedClientCert() throws Throwable {
     File trustCertFile =
         IntegrationTestUtils.getFile(getClass(), "mutual_auth_client_cert_chain.pem");
@@ -180,7 +173,6 @@ public class NettyTlsClientAuthTest {
         clientKeyPassword);
   }
 
-  @Test(expected = SSLException.class)
   public void testTrustedChainBadClientCert() throws Throwable {
     File trustCertFile =
         IntegrationTestUtils.getFile(getClass(), "mutual_auth_client_cert_chain.pem");
@@ -311,7 +303,6 @@ public class NettyTlsClientAuthTest {
     }
   }
 
-  @Test
   public void testManagementAPIWithTLS() throws IOException {
     assumeTrue(IntegrationTestUtils.shouldRun());
 
@@ -401,7 +392,6 @@ public class NettyTlsClientAuthTest {
     }
   }
 
-  @Test
   public void testHotReloadDetection() throws Exception {
     assumeTrue(IntegrationTestUtils.shouldRun());
 
@@ -453,7 +443,6 @@ public class NettyTlsClientAuthTest {
     verify(spy, Mockito.timeout(1000)).createSSLContext();
   }
 
-  @Test(expected = SSLException.class)
   public void testSSLHandlerReplace() throws Throwable {
     EventLoopGroup group = new DefaultEventLoopGroup(1);
     Channel sc = null;

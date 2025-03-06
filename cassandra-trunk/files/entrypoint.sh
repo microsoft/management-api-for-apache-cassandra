@@ -54,6 +54,11 @@ if [ "$1" = 'mgmtapi' ]; then
         cp -R /config/* "${CASSANDRA_CONF:-/etc/cassandra}"
     fi
 
+    # remove cassandra-topology.properties file
+    if [ -e "${CASSANDRA_CONF}/cassandra-topology.properties" ]; then
+        rm "${CASSANDRA_CONF}/cassandra-topology.properties"
+    fi
+
     # Make sure the management api agent jar is set
     # We do this here for the following reasons:
     # 1. configbuilder will overwrite the cassandra-env-sh, so we don't want to set this after
@@ -150,10 +155,11 @@ if [ "$1" = 'mgmtapi' ]; then
     fi
 
     MGMT_API_ARGS=""
-
+    # set the listen port to 8080 if not already set
+    : ${MGMT_API_LISTEN_TCP_PORT='8080'}
     # Hardcoding these for now
     MGMT_API_CASSANDRA_SOCKET="--cassandra-socket /tmp/cassandra.sock"
-    MGMT_API_LISTEN_TCP="--host tcp://0.0.0.0:8080"
+    MGMT_API_LISTEN_TCP="--host tcp://0.0.0.0:${MGMT_API_LISTEN_TCP_PORT}"
     MGMT_API_LISTEN_SOCKET="--host file:///tmp/oss-mgmt.sock"
 
     MGMT_API_ARGS="$MGMT_API_ARGS $MGMT_API_CASSANDRA_SOCKET $MGMT_API_LISTEN_TCP $MGMT_API_LISTEN_SOCKET"

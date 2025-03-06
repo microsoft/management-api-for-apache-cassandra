@@ -5,6 +5,7 @@
  */
 package com.datastax.mgmtapi.shim;
 
+import com.datastax.bdp.transport.common.DseReloadableTrustManager;
 import com.datastax.mgmtapi.shims.CassandraAPI;
 import com.datastax.mgmtapi.shims.RpcStatementShim;
 import com.google.common.base.Suppliers;
@@ -20,17 +21,12 @@ import java.io.UncheckedIOException;
 import java.lang.reflect.Field;
 import java.net.InetAddress;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.cassandra.auth.IRoleManager;
+import org.apache.cassandra.auth.RoleResource;
 import org.apache.cassandra.concurrent.TPCTaskType;
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.cql3.QueryProcessor;
@@ -229,6 +225,8 @@ public class DseAPI68 implements CassandraAPI {
       states.put("ENDPOINT_IP", endpoint.getHostAddress());
       states.put("IS_ALIVE", Boolean.toString(state.isAlive()));
       states.put("PARTITIONER", partitioner.getClass().getName());
+      states.put("CLUSTER_NAME", getStorageService().getClusterName());
+      states.put("IS_LOCAL", Boolean.toString(endpoint.equals(FBUtilities.getBroadcastAddress())));
       result.add(states);
     }
 
@@ -330,5 +328,27 @@ public class DseAPI68 implements CassandraAPI {
   @Override
   public HintsService getHintsService() {
     return HintsService.instance;
+  }
+
+  public void reloadInternodeEncryptionTruststore() throws Exception {
+    DseReloadableTrustManager.serverEncryptionInstance().reloadTrustManager();
+  }
+
+  @Override
+  public List<Map<String, String>> listRoles() {
+    IRoleManager roleManager = getRoleManager();
+    Set<RoleResource> allRoles = roleManager.getAllRoles();
+    List<Map<String, String>> roles = new ArrayList<>();
+    for (RoleResource role : allRoles) {
+      Map<String, String> roleOutput = new HashMap<>();
+      roleOutput.put("name", role.getRoleName());
+      roleOutput.put("super", String.valueOf(roleManager.isSuper(role)));
+      roleOutput.put("login", String.valueOf(roleManager.canLogin(role)));
+      roleOutput.put("options", "{}");
+      roleOutput.put("datacenters", "");
+      roles.add(roleOutput);
+    }
+
+    return roles;
   }
 }

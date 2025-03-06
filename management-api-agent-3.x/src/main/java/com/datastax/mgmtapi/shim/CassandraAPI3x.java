@@ -223,9 +223,13 @@ public class CassandraAPI3x implements CassandraAPI {
         states.put(s.getKey().name(), value);
       }
 
+      InetAddress endpoint = entry.getKey();
+      states.put("ENDPOINT_IP", endpoint.getHostAddress());
       states.put("ENDPOINT_IP", entry.getKey().getHostAddress());
       states.put("IS_ALIVE", Boolean.toString(entry.getValue().isAlive()));
       states.put("PARTITIONER", partitioner.getClass().getName());
+      states.put("CLUSTER_NAME", getStorageService().getClusterName());
+      states.put("IS_LOCAL", Boolean.toString(endpoint.equals(FBUtilities.getBroadcastAddress())));
 
       result.add(states);
     }
@@ -351,9 +355,9 @@ public class CassandraAPI3x implements CassandraAPI {
     } catch (Throwable e) {
       logger.error("Exception thrown while fetching thread pool metrics", e);
       throw e;
+      }
     }
-  }
-
+      
   private String getMetricValue(Metric metric) throws Throwable {
     try {
       String value;

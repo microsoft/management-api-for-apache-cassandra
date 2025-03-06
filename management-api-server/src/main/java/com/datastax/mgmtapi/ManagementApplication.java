@@ -12,16 +12,18 @@ import com.datastax.mgmtapi.resources.LifecycleResources;
 import com.datastax.mgmtapi.resources.MetadataResources;
 import com.datastax.mgmtapi.resources.NodeOpsResources;
 import com.datastax.mgmtapi.resources.TableOpsResources;
+import com.datastax.mgmtapi.resources.v2.RepairResourcesV2;
+import com.datastax.mgmtapi.resources.v2.TokenResourcesV2;
 import com.google.common.collect.ImmutableSet;
 import io.swagger.v3.jaxrs2.SwaggerSerializers;
 import io.swagger.v3.jaxrs2.integration.resources.OpenApiResource;
+import jakarta.ws.rs.ApplicationPath;
+import jakarta.ws.rs.core.Application;
+import jakarta.ws.rs.core.Response;
 import java.io.File;
 import java.util.Collection;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
-import javax.ws.rs.ApplicationPath;
-import javax.ws.rs.core.Application;
-import javax.ws.rs.core.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -65,6 +67,8 @@ public class ManagementApplication extends Application {
             new TableOpsResources(this),
             new com.datastax.mgmtapi.resources.v1.TableOpsResources(this),
             new AuthResources(this),
+            new RepairResourcesV2(this),
+            new TokenResourcesV2(this),
             new OpenApiResource(),
             new SwaggerSerializers());
   }
@@ -79,7 +83,7 @@ public class ManagementApplication extends Application {
       STATE currentState = getRequestedState();
       logger.debug("Current Requested State is {}", currentState);
       if (currentState != STATE.STOPPED) {
-        Response r = lifecycle.startNode(getActiveProfile(), null);
+        Response r = lifecycle.startNode(getActiveProfile(), null, null);
         return r.getStatus() >= 200 && r.getStatus() < 300;
       }
 
@@ -104,6 +108,22 @@ public class ManagementApplication extends Application {
 
   public void setActiveProfile(String profile) {
     activeProfile.set(profile);
+  }
+
+  public static String getServerCommonName(File dbCmdFile) {
+    if (dbCmdFile != null) {
+      final String dbExeString = dbCmdFile.getAbsolutePath();
+      if (dbExeString.endsWith("hcd")) {
+        return "HCD";
+      }
+      if (dbExeString.endsWith("dse")) {
+        return "DSE";
+      }
+      if (dbExeString.endsWith("cassandra")) {
+        return "Cassandra";
+      }
+    }
+    return "UNDEFINED";
   }
 
   public enum STATE {

@@ -5,14 +5,16 @@
  */
 package com.datastax.mgmtapi.resources;
 
-import static com.datastax.mgmtapi.resources.NodeOpsResources.handle;
+import static com.datastax.mgmtapi.ManagementApplication.STATE.STARTED;
 
-import com.datastax.mgmtapi.CqlService;
 import com.datastax.mgmtapi.ManagementApplication;
+import com.datastax.mgmtapi.UnixCmds;
+import com.datastax.mgmtapi.resources.common.BaseResources;
 import com.datastax.mgmtapi.resources.helpers.ResponseTools;
 import com.datastax.mgmtapi.resources.models.Job;
 import com.datastax.oss.driver.api.core.cql.ResultSet;
 import com.datastax.oss.driver.api.core.cql.Row;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -20,29 +22,28 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
-import javax.ws.rs.GET;
-import javax.ws.rs.POST;
-import javax.ws.rs.Path;
-import javax.ws.rs.Produces;
-import javax.ws.rs.QueryParam;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
+import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @Path("/api/v0")
-public class K8OperatorResources {
+public class K8OperatorResources extends BaseResources {
   private static final Logger logger = LoggerFactory.getLogger(K8OperatorResources.class);
+
   private static final ObjectMapper jsonMapper = new ObjectMapper();
 
-  private final ManagementApplication app;
-  private final CqlService cqlService;
-
   public K8OperatorResources(ManagementApplication application) {
-    this.app = application;
-    this.cqlService = application.cqlService;
+    super(application);
   }
 
   @GET
@@ -52,8 +53,25 @@ public class K8OperatorResources {
   @ApiResponse(
       responseCode = "200",
       description = "Service is running",
-      content = @Content(mediaType = MediaType.TEXT_PLAIN, examples = @ExampleObject(value = "OK")))
+      content =
+          @Content(
+              mediaType = MediaType.TEXT_PLAIN,
+              schema = @Schema(implementation = String.class),
+              examples = @ExampleObject(value = "OK")))
   public Response checkLiveness() {
+    if (app.getRequestedState() == STARTED) {
+      // Verify it is still running
+      try {
+        Optional<Integer> pid = UnixCmds.findPid(app.dbUnixSocketFile.getAbsolutePath());
+        if (pid.isPresent() && UnixCmds.isPidRunning(pid.get())) {
+          return Response.ok("OK").build();
+        }
+      } catch (IOException e) {
+        // NOOP
+        logger.error("Unable to read the pid file, " + e.getMessage(), e);
+      }
+      return Response.serverError().build();
+    }
     return Response.ok("OK").build();
   }
 
@@ -66,13 +84,17 @@ public class K8OperatorResources {
   @ApiResponse(
       responseCode = "200",
       description = "Service is ready to handle requests",
-      content = @Content(mediaType = MediaType.TEXT_PLAIN, examples = @ExampleObject(value = "OK")))
+      content =
+          @Content(
+              mediaType = MediaType.TEXT_PLAIN,
+              schema = @Schema(implementation = String.class),
+              examples = @ExampleObject(value = "OK")))
   @ApiResponse(responseCode = "500", description = "Service is not ready to handle requests")
   public Response checkReadiness() {
     return handle(
         () -> {
           ResultSet resultSet =
-              cqlService.executeCql(app.dbUnixSocketFile, "SELECT * from system.local");
+              app.cqlService.executeCql(app.dbUnixSocketFile, "SELECT * from system.local");
           Row result = resultSet.one();
 
           if (result != null) {
@@ -123,7 +145,7 @@ public class K8OperatorResources {
           if (rfPerDc == null) rfPerDc = 3;
 
           ResultSet result =
-              cqlService.executePreparedStatement(
+              app.cqlService.executePreparedStatement(
                   app.dbUnixSocketFile,
                   "CALL NodeOps.checkConsistencyLevel(?, ?)",
                   consistencyLevel,
@@ -158,7 +180,7 @@ public class K8OperatorResources {
     return handle(
         () -> {
           ResultSet result =
-              cqlService.executeCql(app.dbUnixSocketFile, "CALL NodeOps.reloadSeeds()");
+              app.cqlService.executeCql(app.dbUnixSocketFile, "CALL NodeOps.reloadSeeds()");
 
           List<String> response = result.one().getList("result", String.class);
 
@@ -192,11 +214,27 @@ public class K8OperatorResources {
           Map<String, String> jobResponse =
               (Map<String, String>)
                   ResponseTools.getSingleRowResponse(
-                      app.dbUnixSocketFile, cqlService, "CALL NodeOps.jobStatus(?)", jobId);
+                      app.dbUnixSocketFile, app.cqlService, "CALL NodeOps.getJobStatus(?)", jobId);
           if (jobResponse.isEmpty()) {
             return Response.status(Response.Status.NOT_FOUND).entity(jobResponse).build();
           }
-          return Response.ok(jobResponse, MediaType.APPLICATION_JSON).build();
+
+          TypeReference listOfJobStatus = new TypeReference<List<Job.StatusChange>>() {};
+          try {
+            Job outJob =
+                new Job(
+                    jobResponse.get("id"),
+                    jobResponse.get("type"),
+                    jobResponse.get("status"),
+                    Long.parseLong(jobResponse.get("submit_time")),
+                    Long.parseLong(jobResponse.get("end_time")),
+                    jobResponse.get("error"),
+                    (List<Job.StatusChange>)
+                        jsonMapper.readValue(jobResponse.get("status_changes"), listOfJobStatus));
+            return Response.ok(outJob, MediaType.APPLICATION_JSON).build();
+          } catch (Exception e) {
+            throw new RuntimeException(e);
+          }
         });
   }
 }

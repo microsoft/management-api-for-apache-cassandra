@@ -16,7 +16,7 @@
   <groupId>com.datastax</groupId>
   <artifactId>datastax-mgmtapi-agent-5.0.x</artifactId>
   <properties>
-    <cassandra5.version>5.0-SNAPSHOT</cassandra5.version>
+    <cassandra5.version>5.0.7</cassandra5.version>
   </properties>
   <dependencies>
     <dependency>

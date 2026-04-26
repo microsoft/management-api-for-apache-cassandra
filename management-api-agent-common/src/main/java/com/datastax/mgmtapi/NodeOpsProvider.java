@@ -27,8 +27,11 @@ import com.google.common.base.Suppliers;
 import com.google.common.collect.Maps;
 import io.k8ssandra.shaded.com.fasterxml.jackson.core.JsonProcessingException;
 import io.k8ssandra.shaded.com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.InetAddress;
+import java.net.MalformedURLException;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -48,7 +51,9 @@ import org.apache.cassandra.auth.AuthenticatedUser;
 import org.apache.cassandra.auth.IRoleManager;
 import org.apache.cassandra.auth.RoleOptions;
 import org.apache.cassandra.auth.RoleResource;
+import org.apache.cassandra.config.YamlConfigurationLoader;
 import org.apache.cassandra.cql3.UntypedResultSet;
+import org.apache.cassandra.exceptions.ConfigurationException;
 import org.apache.cassandra.db.ConsistencyLevel;
 import org.apache.cassandra.db.compaction.OperationType;
 import org.apache.cassandra.db.marshal.UTF8Type;
@@ -920,4 +925,85 @@ public class NodeOpsProvider {
       @RpcParam(name = "keyspaceName") String keyspaceName) {
     return ShimLoader.instance.get().getStorageService().getRangeToEndpointMap(keyspaceName);
   }
+  // === Begin Microsoft-fork RPCs (re-applied after upstream sync) ===
+
+  @Rpc(name = "setGossipEnabled")
+  public void setGossipEnabled(@RpcParam(name = "enabled") boolean gossipEnabled) {
+    logger.debug("Attempting to enable gossip {}", gossipEnabled);
+    if (gossipEnabled) {
+      ShimLoader.instance.get().getStorageService().startGossiping();
+    } else {
+      ShimLoader.instance.get().getStorageService().stopGossiping();
+    }
+  }
+
+  @Rpc(name = "isGossipRunning")
+  public boolean isGossipRunning() {
+    return ShimLoader.instance.get().getStorageService().isGossipRunning();
+  }
+
+  @Rpc(name = "setNativeTransportEnabled")
+  public void setNativeTransportEnabled(
+      @RpcParam(name = "enabled") boolean nativeTransportEnabled) {
+    logger.debug("Attempting to enable native transport {}", nativeTransportEnabled);
+    if (nativeTransportEnabled) {
+      ShimLoader.instance.get().getStorageService().startNativeTransport();
+    } else {
+      ShimLoader.instance.get().getStorageService().stopNativeTransport();
+    }
+  }
+
+  @Rpc(name = "isNativeTransportRunning")
+  public boolean isNativeTransportRunning() {
+    return ShimLoader.instance.get().getStorageService().isNativeTransportRunning();
+  }
+
+  @Rpc(name = "getOperationMode")
+  public String getOperationMode() {
+    logger.debug("Getting Storage Service Operation Mode");
+    return ShimLoader.instance.get().getStorageService().getOperationMode();
+  }
+
+  @Rpc(name = "setStreamThroughputMbitPerSec")
+  public void setStreamThroughputMbitPerSec(@RpcParam(name = "value") int value) {
+    logger.debug("Setting stream throughput to {}", value);
+    // Using old name for compatibility
+    ShimLoader.instance.get().getStorageService().setStreamThroughputMbPerSec(value);
+  }
+
+  @Rpc(name = "getStreamThroughputMbitPerSec")
+  public int getStreamThroughputMbitPerSec() {
+    // Using old name for compatibility
+    return ShimLoader.instance.get().getStorageService().getStreamThroughputMbPerSec();
+  }
+
+  @Rpc(name = "validateCassandraConfigYaml")
+  public String validateCassandraConfigYaml(@RpcParam(name = "path") String path)
+      throws FileNotFoundException, MalformedURLException {
+    logger.debug("Validating cassandra yaml config at {}", path);
+
+    File configFile = new File(path);
+    if (!configFile.exists()) {
+      logger.error("Config file {} does not exist", path);
+      throw new FileNotFoundException(String.format("Config file %s does not exist", path));
+    }
+
+    try {
+      new YamlConfigurationLoader().loadConfig(configFile.toURI().toURL());
+    } catch (ConfigurationException ex) {
+      logger.error(String.format("Config present at %s is invalid", path), ex);
+      return ex.getMessage();
+    }
+
+    return "";
+  }
+
+
+  // Alias preserved from MS fork: legacy callers used "jobStatus" before upstream renamed to "getJobStatus".
+  @Rpc(name = "jobStatus")
+  public Map<String, String> jobStatus(@RpcParam(name = "job_id") String jobId) {
+    return getJobStatus(jobId);
+  }
+  // === End Microsoft-fork RPCs ===
+
 }

@@ -375,6 +375,18 @@
           <threadCount>1</threadCount>
           <reuseForks>true</reuseForks>
           <skipTests>${skip.surefire.tests}</skipTests>
+          <!--
+            NettyTlsClientAuthTest depends on private *.key fixtures that were
+            removed from this fork in 2021 (commit 3aedb83 "Remove example
+            keys") to comply with Microsoft secret-scanning policy. The
+            corresponding .pem/.crt files remain, but the test cannot run
+            without the matching keys. Exclude until either the keys are
+            regenerated in-tree or the test is rewritten to generate
+            ephemeral key material at runtime.
+          -->
+          <excludes>
+            <exclude>**/NettyTlsClientAuthTest.java</exclude>
+          </excludes>
         </configuration>
       </plugin>
       <plugin>

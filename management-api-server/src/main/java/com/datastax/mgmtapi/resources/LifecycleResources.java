@@ -11,6 +11,7 @@ import static com.datastax.mgmtapi.ManagementApplication.STATE.STOPPED;
 import com.datastax.mgmtapi.ManagementApplication;
 import com.datastax.mgmtapi.UnixCmds;
 import com.datastax.mgmtapi.UnixSocketCQLAccess;
+import com.datastax.mgmtapi.resources.common.BaseResources;
 import com.datastax.mgmtapi.util.ShellUtils;
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.shaded.guava.common.collect.Streams;
@@ -19,6 +20,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.TextNode;
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Uninterruptibles;
 import io.swagger.v3.oas.annotations.Hidden;
@@ -27,40 +29,42 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.client.Entity;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-import javax.ws.rs.Consumes;
-import javax.ws.rs.GET;
-import javax.ws.rs.POST;
-import javax.ws.rs.Path;
-import javax.ws.rs.Produces;
-import javax.ws.rs.QueryParam;
-import javax.ws.rs.client.Entity;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.http.HttpStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @Path("/api/v0/lifecycle")
-public class LifecycleResources {
+public class LifecycleResources extends BaseResources {
   private static final Logger logger = LoggerFactory.getLogger(LifecycleResources.class);
-  private final ManagementApplication app;
 
   static final YAMLMapper yamlMapper = new YAMLMapper();
-  static final String PROFILE_PATTERN = "[0-9a-zA-Z\\-_]+";
   static final String IPV4_PATTERN =
       "^((0|1\\d?\\d?|2[0-4]?\\d?|25[0-5]?|[3-9]\\d?)\\.){3}(0|1\\d?\\d?|2[0-4]?\\d?|25[0-5]?|[3-9]\\d?)$";
   private ObjectMapper objectMapper = new ObjectMapper();
 
   public LifecycleResources(ManagementApplication app) {
-    this.app = app;
+    super(app);
   }
 
   /**
@@ -88,6 +92,14 @@ public class LifecycleResources {
   @ApiResponse(responseCode = "204", description = "Cassandra already running but can't connect")
   @ApiResponse(responseCode = "206", description = "Cassandra process not found but can connect")
   @ApiResponse(
+      responseCode = "400",
+      description = "Invalid parameters",
+      content =
+          @Content(
+              mediaType = MediaType.TEXT_PLAIN,
+              schema = @Schema(implementation = String.class),
+              examples = @ExampleObject(value = "Invalid replace IP passed: 0.0.0.0.0")))
+  @ApiResponse(
       responseCode = "420",
       description = "Cassandra could not start successfully",
       content =
@@ -104,8 +116,9 @@ public class LifecycleResources {
               schema = @Schema(implementation = String.class),
               examples = @ExampleObject(value = "error message")))
   public synchronized Response startNode(
-      @QueryParam("profile") String profile, @QueryParam("replace_ip") String replaceIp) {
-    app.setRequestedState(STARTED);
+      @QueryParam("profile") String profile,
+      @QueryParam("replace_ip") String replaceIp,
+      @QueryParam("replace_consistency") String consistency) {
 
     // Todo we should add a CALL getPid command and compare;
     boolean canConnect;
@@ -122,7 +135,7 @@ public class LifecycleResources {
     try {
       Optional<Integer> maybePid = findPid();
 
-      if (maybePid.isPresent()) {
+      if (maybePid.isPresent() && UnixCmds.isPidRunning(maybePid.get())) {
         return Response.status(canConnect ? HttpStatus.SC_ACCEPTED : HttpStatus.SC_NO_CONTENT)
             .build();
       } else if (canConnect) return Response.status(HttpStatus.SC_PARTIAL_CONTENT).build();
@@ -138,32 +151,33 @@ public class LifecycleResources {
       if (extra != null) envArgsBuilder.put("JVM_EXTRA_OPTS", extra);
 
       Map<String, String> environment = envArgsBuilder.build();
-      StringBuilder extraArgs = new StringBuilder();
+      List<String> cmdArgs = new ArrayList<>(app.dbExtraJvmArgs);
 
       if (profile != null) {
         app.setActiveProfile(profile);
 
-        extraArgs
-            .append("-Dcassandra.config=file:///tmp/")
-            .append(profile)
-            .append("/cassandra.yaml")
-            .append(" -Dcassandra-rackdc.properties=file:///tmp/")
-            .append(profile)
-            .append("/node-topology.properties");
+        cmdArgs.add(String.format("-Dcassandra.config=file:///tmp/%s/cassandra.yaml", profile));
+        cmdArgs.add(
+            String.format(
+                "-Dcassandra-rackdc.properties=file:///tmp/%s/node-topology.properties", profile));
       }
 
       if (replaceIp != null) {
         if (!replaceIp.matches(IPV4_PATTERN))
-          return Response.serverError()
+          return Response.status(HttpStatus.SC_BAD_REQUEST)
               .entity(Entity.text("Invalid replace IP passed: " + replaceIp))
               .build();
 
-        extraArgs.append("-Dcassandra.replace_address_first_boot=").append(replaceIp);
-      }
-
-      String cassandraOrDseCommand = app.dbExe.getAbsolutePath();
-      if (cassandraOrDseCommand.endsWith("dse")) {
-        cassandraOrDseCommand += " cassandra";
+        cmdArgs.add(String.format("-Dcassandra.replace_address_first_boot=%s", replaceIp));
+        if (!Strings.isNullOrEmpty(consistency)) {
+          if (app.dbExe.getAbsolutePath().endsWith("dse")) {
+            cmdArgs.add(String.format("-Ddse.consistent_replace=%s", consistency));
+          } else {
+            return Response.status(HttpStatus.SC_BAD_REQUEST)
+                .entity(Entity.text("Consistency parameter for replace is only accepted with DSE"))
+                .build();
+          }
+        }
       }
 
       // Delete stale file if it exists
@@ -185,32 +199,57 @@ public class LifecycleResources {
                 "Process cannot write to %s. Please ensure that permissions are set correctly and that the MGMT_API_LOG_DIR environment variable is set to the desired log directory.",
                 mgmtApiStartupLogDir));
       } else {
+        // build the start command. Add stdout/stderr redirects first
+        ProcessBuilder dbCmdPb =
+            new ProcessBuilder("nohup")
+                .redirectError(Paths.get(mgmtApiStartupLogDir, "stderr.log").toFile())
+                .redirectOutput(Paths.get(mgmtApiStartupLogDir, "stdout.log").toFile());
+        // setup profile if specified
+        if (profile != null) {
+          dbCmdPb.command().add(String.format("/tmp/%s/env.sh", profile));
+        }
+        dbCmdPb.command().add(app.dbExe.getAbsolutePath());
+        if (app.dbExe.getAbsolutePath().endsWith("dse")
+            || app.dbExe.getAbsolutePath().endsWith("hcd")) {
+          // DSE and HCD need the extra "cassandra" startup argument
+          dbCmdPb.command().add("cassandra");
+        }
+        dbCmdPb.command().add("-p");
+        dbCmdPb.command().add("/tmp/cassandra.pid");
+        dbCmdPb.command().add("-R");
+        dbCmdPb.command().add("-Dcassandra.server_process");
+        dbCmdPb.command().add("-Dcassandra.skip_default_role_setup=true");
+        dbCmdPb
+            .command()
+            .add(String.format("-Ddb.unix_socket_file=%s", app.dbUnixSocketFile.getAbsolutePath()));
+        // add extra commands with some sanitizing so that we do not end up with empty args or
+        // surrounded by whitespace chars
+        cmdArgs.stream()
+            .map(this::sanitizeDbCmdArg)
+            .filter(StringUtils::isNotBlank)
+            .forEach(x -> dbCmdPb.command().add(x));
+
         started =
-            ShellUtils.executeShellWithHandlers(
-                String.format(
-                    "nohup %s %s -R -Dcassandra.server_process -Dcassandra.skip_default_role_setup=true -Ddb.unix_socket_file=%s %s %s > %s/stdout.log 2> %s/stderr.log",
-                    profile != null ? "/tmp/" + profile + "/env.sh" : "",
-                    cassandraOrDseCommand,
-                    app.dbUnixSocketFile.getAbsolutePath(),
-                    extraArgs.toString(),
-                    String.join(" ", app.dbExtraJvmArgs),
-                    mgmtApiStartupLogDir,
-                    mgmtApiStartupLogDir),
-                (input, err) -> true,
+            ShellUtils.executeWithHandlers(
+                dbCmdPb,
+                (input, out) -> true,
                 (exitCode, err) -> {
-                  logger.error(
-                      "Error starting Cassandra: {}",
-                      err.lines().collect(Collectors.joining("\n")));
+                  String lines = err.collect(Collectors.joining("\n"));
+                  logger.error("Error starting {}: {}", getServerTypeName(), lines);
                   return false;
                 },
                 environment);
       }
 
-      if (started) logger.info("Started Cassandra");
-      else logger.warn("Error starting Cassandra");
+      if (started) {
+        logger.info("Started {}", getServerTypeName());
+        app.setRequestedState(STARTED);
+      } else {
+        logger.warn("Error starting {}", getServerTypeName());
+      }
 
       return Response.status(started ? HttpStatus.SC_CREATED : HttpStatus.SC_METHOD_FAILURE)
-          .entity(started ? "OK\n" : "Error starting Cassandra")
+          .entity(started ? "OK\n" : String.format("Error starting %s", getServerTypeName()))
           .build();
     } catch (Throwable t) {
       return Response.serverError().entity(Entity.text(t.getLocalizedMessage())).build();
@@ -252,40 +291,36 @@ public class LifecycleResources {
         Optional<Integer> maybePid = findPid();
 
         if (!maybePid.isPresent()) {
-          logger.info("Cassandra already stopped");
+          logger.info("{} already stopped", getServerTypeName());
           return Response.ok("OK\n").build();
         }
 
-        Boolean stopped =
-            ShellUtils.executeShellWithHandlers(
-                String.format("kill %d", maybePid.get()),
-                (input, err) -> true,
-                (exitCode, err) -> false);
+        Boolean stopped = UnixCmds.terminateProcess(maybePid.get());
 
-        if (!stopped) logger.warn("Killing Cassandra failed");
+        if (!stopped) logger.warn("Killing {} failed", getServerTypeName());
 
         Uninterruptibles.sleepUninterruptibly(sleepSeconds, TimeUnit.SECONDS);
       } while (tries-- > 0);
 
       Optional<Integer> maybePid = findPid();
-      if (maybePid.isPresent()) {
-        Boolean stopped =
-            ShellUtils.executeShellWithHandlers(
-                String.format("kill -9 %d", maybePid.get()),
-                (input, err) -> true,
-                (exitCode, err) -> false);
+      if (maybePid.isPresent() && UnixCmds.isPidRunning(maybePid.get())) {
+        Boolean stopped = UnixCmds.killProcess(maybePid.get());
 
         if (!stopped) {
-          logger.info("Cassandra not stopped trying with kill -9");
-          return Response.serverError().entity(Entity.text("Killing Cassandra Failed")).build();
+          logger.info("{} not stopped trying with kill -9", getServerTypeName());
+          return Response.serverError()
+              .entity(Entity.text(String.format("Killing %s Failed", getServerTypeName())))
+              .build();
         }
 
         Uninterruptibles.sleepUninterruptibly(sleepSeconds, TimeUnit.SECONDS);
 
         maybePid = findPid();
-        if (maybePid.isPresent()) {
+        if (maybePid.isPresent() && UnixCmds.isPidRunning(maybePid.get())) {
           logger.info("Cassandra is not able to die");
-          return Response.serverError().entity(Entity.text("Killing Cassandra Failed")).build();
+          return Response.serverError()
+              .entity(Entity.text(String.format("Killing %s Failed", getServerTypeName())))
+              .build();
         }
       }
 
@@ -353,7 +388,9 @@ public class LifecycleResources {
   public synchronized Response configureNode(@QueryParam("profile") String profile, String yaml) {
     if (app.getRequestedState() == STARTED) {
       return Response.status(Response.Status.NOT_ACCEPTABLE)
-          .entity("Cassandra is running, try /api/v0/lifecycle/stop first\n")
+          .entity(
+              String.format(
+                  "{} is running, try /api/v0/lifecycle/stop first\n", getServerTypeName()))
           .build();
     }
 
@@ -508,10 +545,8 @@ public class LifecycleResources {
   }
 
   private Optional<Integer> findPid() throws IOException {
-    return UnixCmds.findDbProcessWithMatchingArg(
-        "-Ddb.unix_socket_file=" + app.dbUnixSocketFile.getAbsolutePath());
+    return UnixCmds.findPid(app.dbUnixSocketFile.getAbsolutePath());
   }
-
   /**
    * Verifies that the provided log directory can be written. Will attempt to create the directory
    * if it does not exist.
@@ -526,5 +561,9 @@ public class LifecycleResources {
     } else {
       return logPath.mkdirs();
     }
+  }
+
+  private String sanitizeDbCmdArg(String arg) {
+    return StringUtils.strip(StringUtils.trim(arg));
   }
 }

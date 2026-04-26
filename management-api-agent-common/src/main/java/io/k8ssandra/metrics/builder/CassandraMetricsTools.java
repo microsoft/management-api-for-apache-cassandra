@@ -5,7 +5,9 @@
  */
 package io.k8ssandra.metrics.builder;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.Arrays;
@@ -14,11 +16,15 @@ import java.util.List;
 import java.util.Map;
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.locator.IEndpointSnitch;
+import org.apache.cassandra.locator.InetAddressAndPort;
 import org.apache.cassandra.service.StorageService;
 import org.apache.cassandra.utils.EstimatedHistogram;
-import org.apache.cassandra.utils.Pair;
+import org.apache.cassandra.utils.FBUtilities;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class CassandraMetricsTools {
+  private static final Logger LOGGER = LoggerFactory.getLogger(CassandraMetricsTools.class);
 
   public static final String CLUSTER_LABEL_NAME = "cluster";
   public static final String DATACENTER_LABEL_NAME = "datacenter";
@@ -63,7 +69,6 @@ public class CassandraMetricsTools {
   protected static final long[] DECAYING_BUCKETS = new EstimatedHistogram(165).getBucketOffsets();
 
   // Log linear buckets (these must match the collectd entry in types.db)
-  protected static final Pair<Long, String>[] LATENCY_BUCKETS;
   protected static final long[] LATENCY_OFFSETS = {
     35, 60, 103, 179, 310, 535, 924, 1597, 2759, 4768, 8239, 14237, 24601, 42510, 73457, 126934,
     219342, 379022, 654949, 1131752, 1955666, 3379391, 5839588, 10090808, 17436917
@@ -74,16 +79,6 @@ public class CassandraMetricsTools {
   static {
     for (int i = 0; i < LATENCY_OFFSETS.length; i++) {
       LATENCY_OFFSETS_TEXT[i] = Long.valueOf(LATENCY_OFFSETS[i]).toString();
-    }
-  }
-
-  static {
-    LATENCY_BUCKETS = new Pair[LATENCY_OFFSETS.length];
-    for (int i = 0; i < LATENCY_BUCKETS.length; i++) {
-      // Latencies are reported in nanoseconds, so we convert the offsets from micros
-      // to nanos
-      LATENCY_BUCKETS[i] =
-          Pair.create(LATENCY_OFFSETS[i] * 1000, "bucket_" + Long.toString(LATENCY_OFFSETS[i]));
     }
   }
 
@@ -116,6 +111,7 @@ public class CassandraMetricsTools {
               .getMethod("getLocalRack")
               .invoke(DatabaseDescriptor.getEndpointSnitch());
     } catch (NoSuchMethodException
+        | NoSuchMethodError
         | IllegalArgumentException
         | InvocationTargetException
         | NullPointerException
@@ -134,6 +130,22 @@ public class CassandraMetricsTools {
         | NoSuchMethodException
         | NullPointerException
         | SecurityException e) {
+      try {
+        // try using the newer Locator
+        Class locatorClass = Class.forName("org.apache.cassandra.locator.Locator");
+        Class locationClass = Class.forName("org.apache.cassandra.tcm.membership.Location");
+        Method getLocator = DatabaseDescriptor.class.getDeclaredMethod("getLocator", null);
+        Object locatorObj = getLocator.invoke(null, null);
+        Method locationMethod =
+            locatorClass.getDeclaredMethod("location", InetAddressAndPort.class);
+        Object locator = locatorClass.cast(getLocator.invoke(null, null));
+        Object locationObj =
+            locationMethod.invoke(locator, FBUtilities.getBroadcastAddressAndPort());
+        Field rack = locationClass.getDeclaredField("rack");
+        return (String) rack.get(locationObj);
+      } catch (Throwable ex) {
+        LOGGER.warn("Failed to get Rack", ex);
+      }
       return "unknown_rack";
     }
   }
@@ -157,6 +169,7 @@ public class CassandraMetricsTools {
               .getMethod("getLocalDatacenter")
               .invoke(DatabaseDescriptor.getEndpointSnitch());
     } catch (NoSuchMethodException
+        | NoSuchMethodError
         | IllegalArgumentException
         | InvocationTargetException
         | NullPointerException
@@ -175,6 +188,23 @@ public class CassandraMetricsTools {
         | NoSuchMethodException
         | NullPointerException
         | SecurityException e) {
+      try {
+        // try using the newer Locator
+        Class locatorClass = Class.forName("org.apache.cassandra.locator.Locator");
+        Class locationClass = Class.forName("org.apache.cassandra.tcm.membership.Location");
+        Method getLocator = DatabaseDescriptor.class.getDeclaredMethod("getLocator", null);
+        Object locatorObj = getLocator.invoke(null, null);
+        Method locationMethod =
+            locatorClass.getDeclaredMethod("location", InetAddressAndPort.class);
+        Object locator = locatorClass.cast(getLocator.invoke(null, null));
+        Object locationObj =
+            locationClass.cast(
+                locationMethod.invoke(locator, FBUtilities.getBroadcastAddressAndPort()));
+        Field datacenter = locationClass.getDeclaredField("datacenter");
+        return (String) datacenter.get(locationObj);
+      } catch (Throwable ex) {
+        LOGGER.warn("Failed to get datacenter", ex);
+      }
       return "unknown_dc";
     }
   }

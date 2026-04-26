@@ -68,6 +68,39 @@ public class CassandraMetricsTest {
     assertEquals("Path", threadPoolMetric.getLabelValues().get(0));
     assertEquals("ThreadPoolName", threadPoolMetric.getLabelValues().get(1));
 
+    // DSE TPC ThreadPool Metrics have dash or slash in the pool_name
+    CassandraMetricDefinition tpcThreadPoolMetric =
+        parser.parseDropwizardMetric(
+            "org.apache.cassandra.metrics.ThreadPools.MetricName.Path.Thread-Pool-Name",
+            "",
+            Lists.newArrayList(),
+            Lists.newArrayList());
+    assertEquals(
+        "org_apache_cassandra_metrics_thread_pools_metric_name",
+        tpcThreadPoolMetric.getMetricName());
+    assertEquals(2, tpcThreadPoolMetric.getLabelNames().size());
+    assertEquals(2, tpcThreadPoolMetric.getLabelValues().size());
+    assertEquals("pool_type", tpcThreadPoolMetric.getLabelNames().get(0));
+    assertEquals("pool_name", tpcThreadPoolMetric.getLabelNames().get(1));
+    assertEquals("Path", tpcThreadPoolMetric.getLabelValues().get(0));
+    assertEquals("Thread-Pool-Name", tpcThreadPoolMetric.getLabelValues().get(1));
+
+    CassandraMetricDefinition tpcThreadPoolMetricSlash =
+        parser.parseDropwizardMetric(
+            "org.apache.cassandra.metrics.ThreadPools.MetricName.Path.Thread/Pool/Name",
+            "",
+            Lists.newArrayList(),
+            Lists.newArrayList());
+    assertEquals(
+        "org_apache_cassandra_metrics_thread_pools_metric_name",
+        tpcThreadPoolMetricSlash.getMetricName());
+    assertEquals(2, tpcThreadPoolMetricSlash.getLabelNames().size());
+    assertEquals(2, tpcThreadPoolMetricSlash.getLabelValues().size());
+    assertEquals("pool_type", tpcThreadPoolMetricSlash.getLabelNames().get(0));
+    assertEquals("pool_name", tpcThreadPoolMetricSlash.getLabelNames().get(1));
+    assertEquals("Path", tpcThreadPoolMetricSlash.getLabelValues().get(0));
+    assertEquals("Thread/Pool/Name", tpcThreadPoolMetricSlash.getLabelValues().get(1));
+
     // Client Request Metrics
     CassandraMetricDefinition clientRequestMetric =
         parser.parseDropwizardMetric(
@@ -123,5 +156,34 @@ public class CassandraMetricsTest {
     assertEquals(1, streamingMetric.getLabelValues().size());
     assertEquals("peer_ip", streamingMetric.getLabelNames().get(0));
     assertEquals("127.0.0.1", streamingMetric.getLabelValues().get(0));
+
+    // HintDelay metrics
+    CassandraMetricDefinition delayMetric =
+        parser.parseDropwizardMetric(
+            "org.apache.cassandra.metrics.HintsService.Hint_delays-127.0.0.1.7000",
+            "",
+            Lists.newArrayList(),
+            Lists.newArrayList());
+    assertEquals(
+        "org_apache_cassandra_metrics_hints_service_hint_delays", delayMetric.getMetricName());
+    assertEquals(1, delayMetric.getLabelNames().size());
+    assertEquals(1, delayMetric.getLabelValues().size());
+    assertEquals("peer_ip", delayMetric.getLabelNames().get(0));
+    assertEquals("127.0.0.1.7000", delayMetric.getLabelValues().get(0));
+
+    // Streaming metrics
+    CassandraMetricDefinition coordinationMetric =
+        parser.parseDropwizardMetric(
+            "org.apache.cassandra.metrics.ReadCoordination.ReplicaLatency.127.0.0.1.7000",
+            "",
+            Lists.newArrayList(),
+            Lists.newArrayList());
+    assertEquals(
+        "org_apache_cassandra_metrics_read_coordination_replica_latency",
+        coordinationMetric.getMetricName());
+    assertEquals(1, coordinationMetric.getLabelNames().size());
+    assertEquals(1, coordinationMetric.getLabelValues().size());
+    assertEquals("peer_ip", coordinationMetric.getLabelNames().get(0));
+    assertEquals("127.0.0.1.7000", coordinationMetric.getLabelValues().get(0));
   }
 }

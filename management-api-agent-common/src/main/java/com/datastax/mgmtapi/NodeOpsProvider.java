@@ -53,10 +53,10 @@ import org.apache.cassandra.auth.RoleOptions;
 import org.apache.cassandra.auth.RoleResource;
 import org.apache.cassandra.config.YamlConfigurationLoader;
 import org.apache.cassandra.cql3.UntypedResultSet;
-import org.apache.cassandra.exceptions.ConfigurationException;
 import org.apache.cassandra.db.ConsistencyLevel;
 import org.apache.cassandra.db.compaction.OperationType;
 import org.apache.cassandra.db.marshal.UTF8Type;
+import org.apache.cassandra.exceptions.ConfigurationException;
 import org.apache.cassandra.repair.RepairParallelism;
 import org.apache.cassandra.repair.messages.RepairOption;
 import org.apache.cassandra.service.StorageProxy;
@@ -998,8 +998,8 @@ public class NodeOpsProvider {
     return "";
   }
 
-
-  // Alias preserved from MS fork: legacy callers used "jobStatus" before upstream renamed to "getJobStatus".
+  // Alias preserved from MS fork: legacy callers used "jobStatus" before upstream renamed to
+  // "getJobStatus".
   @Rpc(name = "jobStatus")
   public Map<String, String> jobStatus(@RpcParam(name = "job_id") String jobId) {
     return getJobStatus(jobId);

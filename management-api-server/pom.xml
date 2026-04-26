@@ -9,25 +9,22 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <parent>
-    <groupId>com.datastax</groupId>
+    <groupId>io.k8ssandra</groupId>
     <artifactId>datastax-mgmtapi</artifactId>
     <version>${revision}</version>
   </parent>
-  <groupId>com.datastax</groupId>
+  <version>${revision}</version>
   <artifactId>datastax-mgmtapi-server</artifactId>
   <properties>
-    <rsapi.version>2.1.1</rsapi.version>
-    <guava.version>30.1.1-jre</guava.version>
-    <airline.version>2.7.0</airline.version>
-    <jaxrs.version>2.1.6</jaxrs.version>
-    <resteasy.version>4.5.9.Final</resteasy.version>
-    <awaitility.version>4.0.3</awaitility.version>
-    <assertj.version>3.17.2</assertj.version>
-    <servelet.version>3.1.0</servelet.version>
+    <apache.httpcore.version>4.4.16</apache.httpcore.version>
+    <apache.commons.lang3.version>3.20.0</apache.commons.lang3.version>
+    <jakarta.activation.version>2.1.4</jakarta.activation.version>
+    <jakarta.validation.version>3.1.1</jakarta.validation.version>
+    <jsr305.version>3.0.2</jsr305.version>
   </properties>
   <dependencies>
     <dependency>
-      <groupId>com.datastax</groupId>
+      <groupId>io.k8ssandra</groupId>
       <artifactId>datastax-mgmtapi-common</artifactId>
       <version>${project.version}</version>
     </dependency>
@@ -45,11 +42,22 @@
       <groupId>ch.qos.logback</groupId>
       <artifactId>logback-classic</artifactId>
       <version>${logback.version}</version>
+      <exclusions>
+        <exclusion>
+          <groupId>org.slf4j</groupId>
+          <artifactId>slf4j-api</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
     <dependency>
-      <groupId>javax.ws.rs</groupId>
-      <artifactId>javax.ws.rs-api</artifactId>
-      <version>${rsapi.version}</version>
+      <groupId>commons-io</groupId>
+      <artifactId>commons-io</artifactId>
+      <version>${commons.io.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-lang3</artifactId>
+      <version>${apache.commons.lang3.version}</version>
     </dependency>
     <dependency>
       <groupId>com.google.guava</groupId>
@@ -60,21 +68,146 @@
       <groupId>com.github.rvesse</groupId>
       <artifactId>airline</artifactId>
       <version>${airline.version}</version>
+      <exclusions>
+        <exclusion>
+          <groupId>org.apache.commons</groupId>
+          <artifactId>commons-lang3</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
+    <!-- Jakarta dependencies to keep in sync -->
+    <dependency>
+      <groupId>jakarta.activation</groupId>
+      <artifactId>jakarta.activation-api</artifactId>
+      <version>${jakarta.activation.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>jakarta.validation</groupId>
+      <artifactId>jakarta.validation-api</artifactId>
+      <version>${jakarta.validation.version}</version>
+    </dependency>
+    <!-- the next 3 Jackson dependnecies are here explictly to keep the versions
+    the same as what we use in the common modules. They are normally pulled
+    in transitively by swagger-jaxrs2-jakarta below -->
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+      <version>${jackson-dataformat.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.fasterxml.jackson.dataformat</groupId>
+      <artifactId>jackson-dataformat-yaml</artifactId>
+      <version>${jackson-dataformat.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.fasterxml.jackson.jakarta.rs</groupId>
+      <artifactId>jackson-jakarta-rs-json-provider</artifactId>
+      <version>${jackson-dataformat.version}</version>
+      <exclusions>
+        <exclusion>
+          <groupId>jakarta.activation</groupId>
+          <artifactId>jakarta.activation-api</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>jakarta.validation</groupId>
+          <artifactId>jakarta.validation-api</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <!-- end of Jackson libraries to explicity declare -->
     <dependency>
       <groupId>io.swagger.core.v3</groupId>
-      <artifactId>swagger-jaxrs2</artifactId>
+      <artifactId>swagger-jaxrs2-jakarta</artifactId>
       <version>${jaxrs.version}</version>
+      <exclusions>
+        <exclusion>
+          <groupId>com.fasterxml.jackson.core</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>com.fasterxml.jackson.dataformat</groupId>
+          <artifactId>jackson-dataformat-yaml</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>com.fasterxml.jackson.jakarta.rs</groupId>
+          <artifactId>jackson-jakarta-rs-json-provider</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>com.fasterxml.jackson.datatype</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.apache.commons</groupId>
+          <artifactId>commons-lang3</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.slf4j</groupId>
+          <artifactId>slf4j-api</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>jakarta.validation</groupId>
+          <artifactId>jakarta.validation-api</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.yaml</groupId>
+          <artifactId>snakeyaml</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
     <dependency>
-      <groupId>org.jboss.resteasy</groupId>
-      <artifactId>resteasy-netty4</artifactId>
-      <version>${resteasy.version}</version>
+      <groupId>dev.resteasy.netty</groupId>
+      <artifactId>resteasy-embedded-server</artifactId>
+      <version>1.0.0.Final</version>
+      <exclusions>
+        <exclusion>
+          <groupId>org.jboss.resteasy</groupId>
+          <artifactId>resteasy-core</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.jboss.resteasy</groupId>
+          <artifactId>resteasy-core-spi</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>io.netty</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.httpcomponents</groupId>
+      <artifactId>httpcore</artifactId>
+      <version>${apache.httpcore.version}</version>
     </dependency>
     <dependency>
       <groupId>org.jboss.resteasy</groupId>
       <artifactId>resteasy-jackson2-provider</artifactId>
       <version>${resteasy.version}</version>
+      <exclusions>
+        <exclusion>
+          <groupId>com.fasterxml.jackson.core</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>com.fasterxml.jackson.jakarta.rs</groupId>
+          <artifactId>jackson-jakarta-rs-base</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>com.fasterxml.jackson.jakarta.rs</groupId>
+          <artifactId>jackson-jakarta-rs-json-provider</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>com.fasterxml.jackson.module</groupId>
+          <artifactId>jackson-module-jakarta-xmlbind-annotations</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>jakarta.validation</groupId>
+          <artifactId>jakarta.validation-api</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.jboss.logging</groupId>
+          <artifactId>jboss-logging</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
     <dependency>
       <groupId>io.netty</groupId>
@@ -82,14 +215,42 @@
       <version>${netty.version}</version>
     </dependency>
     <dependency>
-      <groupId>com.datastax.oss</groupId>
+      <groupId>org.apache.cassandra</groupId>
       <artifactId>java-driver-core</artifactId>
       <version>${driver.version}</version>
+      <exclusions>
+        <exclusion>
+          <groupId>com.fasterxml.jackson.core</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>io.netty</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.slf4j</groupId>
+          <artifactId>slf4j-api</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.reactivestreams</groupId>
+          <artifactId>reactive-streams</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
     <dependency>
-      <groupId>javax.servlet</groupId>
-      <artifactId>javax.servlet-api</artifactId>
+      <groupId>jakarta.servlet</groupId>
+      <artifactId>jakarta.servlet-api</artifactId>
       <version>${servelet.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>javax.inject</groupId>
+      <artifactId>javax.inject</artifactId>
+      <version>1</version>
+    </dependency>
+    <dependency>
+      <groupId>com.google.code.findbugs</groupId>
+      <artifactId>jsr305</artifactId>
+      <version>${jsr305.version}</version>
     </dependency>
     <dependency>
       <groupId>com.github.docker-java</groupId>
@@ -137,6 +298,12 @@
       <version>${mockito.version}</version>
       <scope>test</scope>
     </dependency>
+    <dependency>
+      <groupId>org.jboss.resteasy</groupId>
+      <artifactId>resteasy-client</artifactId>
+      <version>${resteasy.version}</version>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
   <build>
     <resources>
@@ -148,21 +315,10 @@
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>build-helper-maven-plugin</artifactId>
-        <version>1.8</version>
-        <executions>
-          <execution>
-            <phase>initialize</phase>
-            <id>parse-version</id>
-            <goals>
-              <goal>parse-version</goal>
-            </goals>
-          </execution>
-        </executions>
       </plugin>
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>exec-maven-plugin</artifactId>
-        <version>1.4.0</version>
       </plugin>
       <plugin>
         <artifactId>maven-antrun-plugin</artifactId>
@@ -175,7 +331,7 @@
               <target>
                 <condition property="cassandra.bin.exists">
                   <resourceexists>
-                    <file file=".cassandra-bin/apache-cassandra-${cassandra3.version}/bin/cassandra"/>
+                    <file file=".cassandra-bin/apache-cassandra-${cassandra4.version}/bin/cassandra"/>
                   </resourceexists>
                 </condition>
               </target>
@@ -191,9 +347,9 @@
             <configuration>
               <target unless="cassandra.bin.exists">
                 <mkdir dir=".cassandra-bin"/>
-                <get src="https://archive.apache.org/dist/cassandra/${cassandra3.version}/apache-cassandra-${cassandra3.version}-bin.tar.gz" dest=".cassandra-bin/"/>
-                <untar src=".cassandra-bin/apache-cassandra-${cassandra3.version}-bin.tar.gz" dest=".cassandra-bin/" compression="gzip"/>
-                <chmod file=".cassandra-bin/apache-cassandra-${cassandra3.version}/bin/cassandra" perm="777"/>
+                <get src="https://archive.apache.org/dist/cassandra/${cassandra4.version}/apache-cassandra-${cassandra4.version}-bin.tar.gz" dest=".cassandra-bin/"/>
+                <untar src=".cassandra-bin/apache-cassandra-${cassandra4.version}-bin.tar.gz" dest=".cassandra-bin/" compression="gzip"/>
+                <chmod file=".cassandra-bin/apache-cassandra-${cassandra4.version}/bin/cassandra" perm="777"/>
               </target>
               <skip>${skipTests}</skip>
             </configuration>
@@ -210,33 +366,28 @@
           <systemPropertyVariables>
             <dseIncluded>${dseIncluded}</dseIncluded>
             <dockerFileRoot>${basedir}/..</dockerFileRoot>
-            <CASSANDRA_HOME>${basedir}/.cassandra-bin/apache-cassandra-${cassandra3.version}</CASSANDRA_HOME>
+            <CASSANDRA_HOME>${basedir}/.cassandra-bin/apache-cassandra-${cassandra4.version}</CASSANDRA_HOME>
           </systemPropertyVariables>
           <environmentVariables>
-            <JVM_EXTRA_OPTS>-javaagent:${basedir}/../management-api-agent/target/datastax-mgmtapi-agent-3.x-${project.version}.jar</JVM_EXTRA_OPTS>
+            <JVM_EXTRA_OPTS>-javaagent:${basedir}/../management-api-agent/target/datastax-mgmtapi-agent-4.x-${project.version}.jar</JVM_EXTRA_OPTS>
           </environmentVariables>
           <forkCount>1</forkCount>
           <threadCount>1</threadCount>
           <reuseForks>true</reuseForks>
+          <skipTests>${skip.surefire.tests}</skipTests>
+          <!--
+            NettyTlsClientAuthTest depends on private *.key fixtures that were
+            removed from this fork in 2021 (commit 3aedb83 "Remove example
+            keys") to comply with Microsoft secret-scanning policy. The
+            corresponding .pem/.crt files remain, but the test cannot run
+            without the matching keys. Exclude until either the keys are
+            regenerated in-tree or the test is rewritten to generate
+            ephemeral key material at runtime.
+          -->
+          <excludes>
+            <exclude>**/NettyTlsClientAuthTest.java</exclude>
+          </excludes>
         </configuration>
-      </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-failsafe-plugin</artifactId>
-        <configuration>
-          <systemPropertyVariables>
-            <dseIncluded>${dseIncluded}</dseIncluded>
-            <dockerFileRoot>${basedir}/..</dockerFileRoot>
-          </systemPropertyVariables>
-        </configuration>
-        <executions>
-          <execution>
-            <goals>
-              <goal>integration-test</goal>
-              <goal>verify</goal>
-            </goals>
-          </execution>
-        </executions>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
@@ -245,10 +396,6 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-resources-plugin</artifactId>
-        <configuration>
-          <outputDirectory/>
-          <encoding>UTF-8</encoding>
-        </configuration>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
@@ -282,6 +429,9 @@
                 <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                   <mainClass>com.datastax.mgmtapi.Cli</mainClass>
+                  <manifestEntries>
+                    <Implementation-Version>${project.version}</Implementation-Version>
+                  </manifestEntries>
                 </transformer>
               </transformers>
             </configuration>
@@ -290,7 +440,7 @@
       </plugin>
       <plugin>
         <groupId>io.swagger.core.v3</groupId>
-        <artifactId>swagger-maven-plugin</artifactId>
+        <artifactId>swagger-maven-plugin-jakarta</artifactId>
         <version>${jaxrs.version}</version>
         <configuration>
           <outputFileName>openapi</outputFileName>
@@ -310,6 +460,17 @@
           </execution>
         </executions>
       </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <executions>
+          <execution>
+            <goals>
+              <goal>test-jar</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
     </plugins>
   </build>
   <profiles>
@@ -317,20 +478,62 @@
       <activation>
         <activeByDefault>false</activeByDefault>
       </activation>
-      <id>clientgen</id>
-      <properties>
-        <openapi.tools.version>5.3.0</openapi.tools.version>
-      </properties>
+      <id>go-clientgen</id>
       <build>
         <plugins>
           <plugin>
             <groupId>org.openapitools</groupId>
             <artifactId>openapi-generator-maven-plugin</artifactId>
-            <version>${openapi.tools.version}</version>
+            <version>7.0.0-beta</version>
             <configuration>
               <inputSpec>${project.basedir}/doc/openapi.json</inputSpec>
               <generatorName>go</generatorName>
               <skip>${skipOpenApi}</skip>
+              <output>${project.build.directory}/generated-sources/openapi/go-client</output>
+            </configuration>
+            <executions>
+              <execution>
+                <phase>process-classes</phase>
+                <goals>
+                  <goal>generate</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <profile>
+      <activation>
+        <activeByDefault>true</activeByDefault>
+      </activation>
+      <id>java-clientgen</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.openapitools</groupId>
+            <artifactId>openapi-generator-maven-plugin</artifactId>
+            <version>7.0.0-beta</version>
+            <configuration>
+              <inputSpec>${project.basedir}/doc/openapi.json</inputSpec>
+              <generatorName>java</generatorName>
+              <skip>${skipOpenApi}</skip>
+              <output>${project.build.directory}/generated-sources/openapi/java-client</output>
+              <apiPackage>com.datastax.mgmtapi.client.api</apiPackage>
+              <modelPackage>com.datastax.mgmtapi.client.model</modelPackage>
+              <invokerPackage>com.datastax.mgmtapi.client.invoker</invokerPackage>
+              <groupId>${project.groupId}</groupId>
+              <artifactId>datastax-mgmtapi-client-openapi</artifactId>
+              <artifactVersion>${project.version}</artifactVersion>
+              <!-- The following configuration options are documented here: https://openapi-generator.tech/docs/generators/java -->
+              <configOptions>
+                <artifactDescription>OpenAPI generated client for Management API for Apache Cassandra</artifactDescription>
+                <artifactUrl>https://github.com/k8ssandra/managemenr-api-for-apache-cassandra</artifactUrl>
+                <scmConnection>https://github.com/k8ssandra/management-api-for-apache-cassandra.git</scmConnection>
+                <scmDeveloperConnection>https://github.com/k8ssandra/management-api-for-apache-cassandra.git</scmDeveloperConnection>
+                <scmUrl>https://github.com/k8ssandra/management-api-for-apache-cassandra</scmUrl>
+                <licenseName>Apache-2.0</licenseName>
+              </configOptions>
             </configuration>
             <executions>
               <execution>

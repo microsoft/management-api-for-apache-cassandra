@@ -50,62 +50,216 @@
   Each Management API is responsible for the local node only.  Coordination across nodes
   is up to the caller.  That being said, complex health checks can be added via CQL.
 
+## Supported Image Matrix
+
+The following versions of Cassandra and DSE are published to Docker and supported:
+
+| Cassandra 4.0.x | Cassandra 4.1.x | Cassandra 5.0.x | DSE 6.8.x | DSE 6.9.x | HCD 1.1.x | HCD 1.2.x |
+|-----------------|-----------------|-----------------|---------- |-----------| --------- | --------- |
+| 4.0.0           | 4.1.0           | 5.0.1           | 6.8.25    | 6.9.0     | 1.1.0     | 1.2.0     |
+| 4.0.1           | 4.1.1           | 5.0.2           | 6.8.26    | 6.9.1     |           |           |
+| 4.0.3           | 4.1.2           | 5.0.3           | 6.8.28    | 6.9.2     |           |           |
+| 4.0.4           | 4.1.3           | 5.0.4           | 6.8.29    | 6.9.3     |           |           |
+| 4.0.5           | 4.1.4           | 5.0.5           | 6.8.30    | 6.9.4     |           |           |
+| 4.0.6           | 4.1.5           | 5.0.6           | 6.8.31    | 6.9.5     |           |           |
+| 4.0.7           | 4.1.6           | 5.0.7           | 6.8.32    | 6.9.6     |           |           |
+| 4.0.8           | 4.1.7           | 5.0.8           | 6.8.33    | 6.9.7     |           |           |
+| 4.0.9           | 4.1.8           |                 | 6.8.34    | 6.9.8     |           |           |
+| 4.0.10          | 4.1.9           |                 | 6.8.35    | 6.9.9     |           |           |
+| 4.0.11          | 4.1.10          |                 | 6.8.36    | 6.9.10    |           |           |
+| 4.0.12          | 4.1.11          |                 | 6.8.37    | 6.9.11    |           |           |
+| 4.0.13          |                 |                 | 6.8.38    | 6.9.12    |           |           |
+| 4.0.14          |                 |                 | 6.8.39    | 6.9.13    |           |           |
+| 4.0.15          |                 |                 | 6.8.40    | 6.9.14    |           |           |
+| 4.0.17          |                 |                 | 6.8.41    | 6.9.15    |           |           |
+| 4.0.18          |                 |                 | 6.8.42    | 6.9.16    |           |           |
+| 4.0.19          |                 |                 | 6.8.43    | 6.9.17    |           |           |
+| 4.0.20          |                 |                 | 6.8.44    | 6.9.18    |           |           |
+|                 |                 |                 | 6.8.46    | 6.9.20    |           |           |
+|                 |                 |                 | 6.8.47    | 6.9.21    |           |           |
+|                 |                 |                 | 6.8.48    |           |           |           |
+|                 |                 |                 | 6.8.49    |           |           |           |
+|                 |                 |                 | 6.8.50    |           |           |           |
+|                 |                 |                 | 6.8.51    |           |           |           |
+|                 |                 |                 | 6.8.52    |           |           |           |
+|                 |                 |                 | 6.8.53    |           |           |           |
+|                 |                 |                 | 6.8.54    |           |           |           |
+|                 |                 |                 | 6.8.55    |           |           |           |
+|                 |                 |                 | 6.8.56    |           |           |           |
+|                 |                 |                 | 6.8.57    |           |           |           |
+|                 |                 |                 | 6.8.58    |           |           |           |
+|                 |                 |                 | 6.8.59    |           |           |           |
+|                 |                 |                 | 6.8.60    |           |           |           |
+|                 |                 |                 | 6.8.61    |           |           |           |
+|                 |                 |                 | 6.8.62    |           |           |           |
+|                 |                 |                 | 6.8.63    |           |           |           |
+
+- Apache Cassandra images are available in `linux/amd64` or `linux/arm64` formats. The DSE images are available only in the `linux/amd64` format.
+- All images (with the exception of Cassandra 5.0) are available as an Ubuntu based image or a RedHat UBI 8 based image.
+Cassandra 5.0 images are only RedHat UBI8 based.
+- All Cassandra 4.0.x and 4.1.x images come with JDK 11
+- All Cassandra 5.0.x images come with JDK17
+- All DSE 6.8.x Ubuntu based images are available with either JDK 8 or JDK 11 (you have to pick, only  one JDK is installed in an image)
+- All DSE 6.8.x RedHat UBI 8 based images come with JDK 8
+- All DSE 6.9.x Ubuntu based images come with only JDK 11
+- All DSE 6.9.x RedHat UBI 8 based images come with only JDK 11
+- HCD images are not built within this repo. Only the Agent for HCD is maintained within this repo
+
+### OSS Cassandra 4.0.X/4.1.X Ubuntu images
+
+As of January 14, 2026, upstream Cassandra images have switched from Ubuntu to Debian for their base
+image. The upstream project has also rebuilt and published the latest Cassandra releases, as of
+January 14, which are 4.1.10 and 4.0.19. Starting with v0.1.112 of this project, all OSS Cassandra
+Ubuntu images for versions 4.1.10 and newer in the 4.1.x stream, and 4.0.19 and newer in the 4.0.x stream
+will actually be Debian based. There is no change to the RedHat UBI based images at this time, nor are
+there any changes to Ubuntu based DSE images produced (they are still based on Ubuntu) by this repository.
+
+### Java versions in Docker images
+
+As of v0.1.88, all images produced from this repo will have Java 11 or newer installed as the 
+Management API server code must now run with Java 11. For images where the Cassandra/DSE
+version runs with Java 8 (see above), Both Java 8 and Java 11 will be available, with
+Java 8 being the default and Java 8 used to run the Cassandra/DSE process.
+
+### Cassandra 3.11.x support is now deprecated
+
+Cassandra 3.11.x is no longer supported as of version v0.1.88. Images with Cassandra 3.11 are still available in DockerHub.
+No new Management API functionality will be released for any Cassandra 3.11 versions going forward and no new Cassandra 3.11.x
+patch version images will be published going forward. The table below shows the last published Cassandra 3.11.x versions:
+
+| Cassandra 3.11.x |
+| ---------------- |
+| 3.11.7           |
+| 3.11.8           |
+| 3.11.11          |
+| 3.11.12          |
+| 3.11.13          |
+| 3.11.14          |
+| 3.11.15          |
+| 3.11.16          |
+| 3.11.17          |
+
+### Docker coordinates for Cassandra OSS images
+
+#### Ubuntu based images (OSS)
+
+For all Ubuntu based OSS Cassandra images, the Docker coordinates are as follows:
+
+      k8ssandra/cass-management-api:<version>
+
+Example for Cassandra 4.0.10
+
+      k8ssandra/cass-management-api:4.0.10
+
+#### RedHat UBI based images (OSS)
+
+For all RedHat UBI based OSS Cassandra images, the Docker coordinates are as follows:
+
+      k8ssandra/cass-management-api:<version>-ubi
+
+Example for Cassandra 4.0.10
+
+      k8ssandra/cass-management-api:4.0.10-ubi
+
+### Docker coordinates for DSE 6.8.x images
+
+#### Ubuntu based images (DSE 6.8)
+
+For all JDK 8 Ubuntu based DSE 6.8.x images, the Docker coordinates are as follows:
+
+      datastax/dse-mgmtapi-6_8:<version>
+
+Example for DSE 6.8.31
+
+      datastax/dse-mgmtapi-6_8:6.8.31
+
+For all JDK 11 Ubuntu based DSE 6.8.x images, the Docker coordinates are as follows:
+
+      datastax/dse-mgmtapi-6_8:<version>-jdk11
+
+Example for DSE 6.8.31
+
+      datastax/dse-mgmtapi-6_8:6.8.31-jdk11
+
+#### RedHat UBI based images (DSE 6.8)
+
+For all RedHat UBI based DSE 6.8.x images, the Docker coordinates are as follows:
+
+      datastax/dse-mgmtapi-6_8:<version>-ubi
+
+For legacy tagging conventions, the image is also tagged as:
+
+      datastax/dse-mgmtapi-6_8:<version>-ubi8
+
+Example for DSE 6.8.31
+
+      datastax/dse-mgmtapi-6_8:6.8.31-ubi
+
+### Docker coordinates for DSE 6.9.x images
+
+#### Ubuntu based images (DSE 6.9)
+
+For all JDK 11 Ubuntu based DSE 6.8.x images, the Docker coordinates are as follows:
+
+      datastax/dse-mgmtapi-6_8:<version>-jdk11
+
+Example for DSE 6.9.0
+
+      datastax/dse-mgmtapi-6_8:6.9.0-jdk11
+
+#### RedHat UBI based images (DSE 6.9)
+
+For all RedHat UBI based DSE 6.9.x images, the Docker coordinates are as follows:
+
+      datastax/dse-mgmtapi-6_8:<version>-ubi
+
+For legacy tagging conventions, the image is also tagged as:
+
+      datastax/dse-mgmtapi-6_8:<version>-ubi8
+
+Example for DSE 6.9.0
+
+      datastax/dse-mgmtapi-6_8:6.9.0-ubi
+
+** NOTE 1: The docker repo is not a typo, it really is `datastax/dse-mgmtapi-6_8` for 6.9 images
+** NOTE 2: While the Legacy tagging uses `ubi8`, the image as of v0.1.108 is actually UBI 9 based
+
+### Docker coordinates for HCD 1.1.x/1.2.x images
+
+#### Ubuntu based images (HCD 1.1/1.2)
+
+For all JDK 11 Ubuntu based HCD 1.1.x/1.2.x images, the Docker coordinates are as follows:
+
+      datastax/hcd:<version>
+
+Example for HCD 1.1.0
+
+      datastax/hcd:1.1.0
+
+Example for HCD 1.2.0
+
+      datastax/hcd:1.2.0
+
+#### RedHat UBI images (HCD 1.1/1.2)
+
+For all RedHat UBI based HCD 1.1.x/1.2.x images, the Docker coordinates are as follows:
+
+      datastax/hcd:<version>-ubi
+
+Example for HCD 1.1.0
+
+      datastax/hcd:1.0.0-ubi
+
+Example for HCD 1.2.0
+
+      datastax/hcd:1.2.0-ubi
+
 ## Building
 
 ### Minimum Java Version
 
 The project has been updated to now require JDK11 or newer to build. The jarfile artifacts
-are still compiled to Java8 as Java8 is still what some Cassandra versiosn ship with.
-
-### Supported Image Matrix
-
-The following versions of Cassandra and DSE are published to Docker and supported:
-
-Cassandra 3.11.x
-
-      k8ssandra/cass-management-api:3.11.7
-      k8ssandra/cass-management-api:3.11.8
-      k8ssandra/cass-management-api:3.11.11
-      k8ssandra/cass-management-api:3.11.12
-      k8ssandra/cass-management-api:3.11.13
-      k8ssandra/cass-management-api:3.11.14
-
-Cassandra 4.0.x
-
-      k8ssandra/cass-management-api:4.0.0
-      k8ssandra/cass-management-api:4.0.1
-      k8ssandra/cass-management-api:4.0.3
-      k8ssandra/cass-management-api:4.0.4
-      k8ssandra/cass-management-api:4.0.5
-      k8ssandra/cass-management-api:4.0.6
-      k8ssandra/cass-management-api:4.0.7
-      k8ssandra/cass-management-api:4.0.8
-      k8ssandra/cass-management-api:4.0.9
-
-Cassandra 4.1.x
-
-      k8ssandra/cass-management-api:4.1.0
-      k8ssandra/cass-management-api:4.1.1
-
-Cassandra trunk
-
-      k8ssandra/cass-management-api:4.2.0
-
-DSE 6.8.x
-
-      datastax/dse-mgmtapi-6_8:6.8.25 (jdk8, jdk11 and ubi7 based images)
-      datastax/dse-mgmtapi-6_8:6.8.26 (jdk8, jdk11 and ubi7 based images)
-      datastax/dse-mgmtapi-6_8:6.8.28 (jdk8, jdk11 and ubi7 based images)
-      datastax/dse-mgmtapi-6_8:6.8.29 (jdk8, jdk11 and ubi7 based images)
-      datastax/dse-mgmtapi-6_8:6.8.30 (jdk8, jdk11 and ubi7 based images)
-      datastax/dse-mgmtapi-6_8:6.8.31 (jdk8, jdk11 and ubi7 based images)
-      datastax/dse-mgmtapi-6_8:6.8.32 (jdk8, jdk11 and ubi7 based images)
-      datastax/dse-mgmtapi-6_8:6.8.33 (jdk8, jdk11 and ubi7 based images)
-      datastax/dse-mgmtapi-6_8:6.8.34 (jdk8, jdk11 and ubi7 based images)
-
-### Cassandra trunk
-
-For building an image based on the latest from Cassandra trunk, see this [README](management-api-agent-4.2.x/README.md)
+are still compiled to Java8 as Java8 is still what some Cassandra versions ship with.
 
 ### Containers
 
@@ -113,11 +267,29 @@ First, you will need to have the [Docker buildx plugin](https://docs.docker.com/
 
 To build an image based on the desired Cassandra version see the examples below:
 
-    #Create a docker image with management api and C* 3.11 (version 3.11.7 and newer are supported, replace `3.11.11` with the version you want below)
-    docker buildx build --load --build-arg CASSANDRA_VERSION=3.11.11 --tag mgmtapi-3_11 --file Dockerfile-oss --target oss311 --platform linux/amd64 .
-
     #Create a docker image with management api and C* 4.0 (version 4.0.0 and newer are supported)
-    docker buildx build --load --build-arg CASSANDRA_VERSION=4.0.1 --tag mgmtapi-4_0 --file Dockerfile-4_0 --target oss40 --platform linux/amd64 .
+    docker buildx build --load --build-arg CASSANDRA_VERSION=4.0.6 --tag mgmtapi-4_0 --file cassandra/Dockerfile-4.0 --target cassandra --platform linux/amd64 .
+
+    #Create a docker image with management api and C* 4.1 (version 4.1.0 and newer are supported)
+    docker buildx build --load --build-arg CASSANDRA_VERSION=4.1.4 --tag mgmtapi-4_1 --file cassandra/Dockerfile-4.1 --target cassandra --platform linux/amd64 .
+
+    # Cassandra 5.0 and newer images are based on RedHat Universal Base Images (see below)
+
+To build a RedHat Universal Base Image (UBI) based Cassandra image, use the `ubi` Dockerfile. Examples:
+
+    #Create a UBI based image with management api and C* 4.0 (version 4.0.0 and newer are supported)
+    docker buildx build --load --build-arg CASSANDRA_VERSION=4.0.6 --tag mgmtapi-4_0_ubi --file cassandra/Dockerfile-4.0.ubi --target cassandra --platform linux/amd64 .
+
+    #Create a UBI based image with management api and C* 4.1 (version 4.1.0 and newer are supported)
+    docker buildx build --load --build-arg CASSANDRA_VERSION=4.1.4 --tag mgmtapi-4_1_ubi --file cassandra/Dockerfile-4.1.ubi --target cassandra --platform linux/amd64 .
+
+    #Create a UBI based image with management api and C* 5.0 (version 5.0.1 and newer are supported)
+    docker buildx build --load --build-arg CASSANDRA_VERSION=5.0.2 --tag mgmtapi-5_0_ubi --file cassandra/Dockerfile-5.0.ubi --target cassandra --platform linux/amd64 .
+
+You can also build OSS Cassandra images for `linux/arm64` based platforms. Both Ubuntu and UBI8 based images support this. Simply change the `--platform` argument above to `--platform linux/arm64`. Examples:
+
+    #Create an ARM64 UBI based image with management api and C* 4.0 (version 4.0.0 and newer are supported)
+    docker buildx build --load --build-arg CASSANDRA_VERSION=4.0.6 --tag mgmtapi-4_0_ubi-arm --file cassandra/Dockerfile-4.0.ubi --target cassandra --platform linux/arm64 .
 
 To build an image based on DSE, see the [DSE README](management-api-agent-dse-6.8/README.md).
 
@@ -125,15 +297,25 @@ To build an image based on DSE, see the [DSE README](management-api-agent-dse-6.
 
     mvn -DskipTests package
     mvn test
-    mvn integration-test -Drun311tests=true -Drun40tests=true
+    mvn integration-test -Drun3.11tests=true -Drun4.0tests=true
 
 **NOTE 1:** Running ````integration-test````s will also run unit tests.
 
-**NOTE 2:** Running ````integration-test````s requires at least one of ````-Drun311tests````, ````-Drun40tests```` or ````-DrunDSEtests```` to be set to ````true```` (you can set any combination of them to ````true````).
+**NOTE 2:** Running ````integration-test````s requires at least one of ````-Drun3.11tests````, ````-Drun3.11testsUBI````, ````-Drun4.0tests````, ````-Drun4.0testsUBI````, ````-Drun4.1tests````, ````-Drun4.1testsUBI````, ````-Drun5.0testsUBI````, ````-DrunDSE6.8tests````, ````-DrunDSE6.8testsUBI````, ````-DrunDSE6.9tests````, or ````-DrunDSE6.9testsUBI```` to be set to ````true```` (you can set any combination of them to ````true````).
 
 **NOTE 3:** In order to run DSE integration tests, you must also enable the ````dse```` profile:
 
-    mvn integration-test -P dse -DrunDSEtests=true
+    mvn integration-test -P dse -DrunDSE6.8tests=true
+
+### Cassandra trunk
+
+For building an image based on the latest from Cassandra trunk, see this [README](management-api-agent-6.0.x/README.md).
+
+### DSE 6.8.x/6.9.x
+
+For building an image based on DSE 6.8, see the [DSE 6.8 README](management-api-agent-dse-6.8/README.md).
+
+For building an image based on DSE 6.9, see the [DSE 6.9 README](management-api-agent-dse-6.9/README.md).
 
 ## REST API
    [The current Swagger/OpenAPI documentation](https://redocly.github.io/redoc/?url=https://raw.githubusercontent.com/k8ssandra/management-api-for-apache-cassandra/master/management-api-server/doc/openapi.json&nocors)
@@ -161,7 +343,8 @@ To build an image based on DSE, see the [DSE README](management-api-agent-dse-6.
   - [Management API for Apache Cassandra 3.11.10](https://hub.docker.com/repository/docker/datastax/cassandra-mgmtapi-3_11_10)
   - [Management API for Apache Cassandra 4.0-beta4](https://hub.docker.com/repository/docker/datastax/cassandra-mgmtapi-4_0_0).
 
-  For DSE Docker images, see the [DSE README](management-api-agent-dse-6.8/README.md).
+  For DSE Docker images, see the [DSE 6.8 README](management-api-agent-dse-6.8/README.md) or
+  the [DSE 6.9 README](management-api-agent-dse-6.9/README.md).
 
   For running standalone the jars can be downloaded from the github release:
      [Management API Releases Zip](https://github.com/k8ssandra/management-api-for-apache-cassandra/releases)
@@ -171,7 +354,7 @@ To build an image based on DSE, see the [DSE README](management-api-agent-dse-6.
 
   The Management API is configured from the CLI. To start the service with a C* version built above, run:
 
-     > docker run -p 8080:8080 -it --rm mgmtapi-4_0
+     > docker run -e USE_MGMT_API=true -p 8080:8080 -it --rm mgmtapi-4_0
 
      > curl http://localhost:8080/api/v0/probes/liveness
      OK
@@ -180,9 +363,19 @@ To build an image based on DSE, see the [DSE README](management-api-agent-dse-6.
      > curl http://localhost:8080/api/v0/probes/readiness
      OK
 
+### Specifying an alternate listen port
+
+By default, all images will listen on port 8080 for Management API connections. This can be overridden by specifying
+the environment variable `MGMT_API_LISTEN_TCP_PORT` and setting it to your desired port. For example:
+
+    > docker run -e USE_MGMT_API=true -e MGMT_API_LISTEN_TCP_PORT=9090 -p 9090:9090 k8ssandra/cass-management-api:4.0.15
+
+The above would run a Cassandra 4.0.15 image with Management API listening on port 9090 (instead of 8080).
+
 ## Usage with DSE
 
-Please see the [DSE README](management-api-agent-dse-6.8/README.md) for details.
+Please see the [DSE 6.8 README](management-api-agent-dse-6.8/README.md) or the
+[DSE 6.9 README](management-api-agent-dse-6.9/README.md) for details.
 
 ## Using the Service with a locally installed C* or DSE instance
 
@@ -216,10 +409,10 @@ Please see the [DSE README](management-api-agent-dse-6.8/README.md) for details.
 
 ## Code Formatting
 
-### Gogle Java Style
+### Google Java Style
 
 The project uses [google-java-format](https://github.com/google/google-java-format) and enforces the
-[Google Java Style](https://google.github.io/styleguide/javaguide.html) for all Java souce files. The
+[Google Java Style](https://google.github.io/styleguide/javaguide.html) for all Java source files. The
 Maven plugin is configured to check the style during compile and it will fail the compile if it finds
 a file that does not adhere to the coding standard.
 
@@ -229,7 +422,7 @@ If you want to check the formatting from the command line after making changes, 
 
     mvn fmt:check
 
-NOTE: If you are making changes in the DSE agent, you ened to enable the `dse` profile:
+NOTE: If you are making changes in the DSE agent, you need to enable the `dse` profile:
 
     mvn -Pdse fmt:check
 
@@ -239,7 +432,7 @@ If you want have the plugin format the code for you, you can simply run:
 
     mvn fmt:format
 
-NOTE: If you are making changes in the DSE agent, you ened to enable the `dse` profile:
+NOTE: If you are making changes in the DSE agent, you need to enable the `dse` profile:
 
     mvn -Pdse fmt:format
 
@@ -252,7 +445,7 @@ Refer to your IDE's documentation for installing and setting up checkstyle.
 
 ### Source code headers
 
-In addtion to Java style formatting, the project also enforces that source files have the correct
+In addition to Java style formatting, the project also enforces that source files have the correct
 header. Source files include `.java`, `.xml` and `.properties` files. The Header should be:
 
     /*
@@ -264,7 +457,7 @@ header. Source files include `.java`, `.xml` and `.properties` files. The Header
 for Java files. For XML and Properties files, the same header should exist, with the appropriate
 comment characters replacing the Java comment characters above.
 
-Just like the Coding style, the Headers are checked at compile time and will fail the compie if
+Just like the Coding style, the Headers are checked at compile time and will fail the compile if
 they aren't correct.
 
 #### Checking the headers
@@ -273,7 +466,7 @@ If you want to check the headers from the command line after making changes, you
 
     mvn license:check
 
-NOTE: If you are making changes in the DSE agent, you ened to enable the `dse` profile:
+NOTE: If you are making changes in the DSE agent, you need to enable the `dse` profile:
 
     mvn -Pdse license:check
 
@@ -283,13 +476,13 @@ If you want have the plugin format the headers for you, you can simply run:
 
     mvn license:format
 
-NOTE: If you are making changes in the DSE agent, you ened to enable the `dse` profile:
+NOTE: If you are making changes in the DSE agent, you need to enable the `dse` profile:
 
     mvn -Pdse license:format
 
 ### XML formatting
 
-The projet also enforces a standard XML format. Again, it is checked at compile time and will fail
+The project also enforces a standard XML format. Again, it is checked at compile time and will fail
 the compile if XML files are not formatted correctly. See the plugin documentation for formatting
 details here: https://acegi.github.io/xml-format-maven-plugin/?utm_source=mavenlibs.com
 
@@ -299,7 +492,7 @@ If you want to check XML files from the command line after making changes, you c
 
     mvn xml-format:xml-check
 
-NOTE: If you are making changes in the DSE agent, you ened to enable the `dse` profile:
+NOTE: If you are making changes in the DSE agent, you need to enable the `dse` profile:
 
     mvn -Pdse xml-format:xml-check
 
@@ -309,7 +502,7 @@ If you want have the plugin format XML files for you, you can simply run:
 
     mvn xml-format:xml-format
 
-NOTE: If you are making changes in the DSE agent, you ened to enable the `dse` profile:
+NOTE: If you are making changes in the DSE agent, you need to enable the `dse` profile:
 
     mvn -Pdse xml-format:xml-format
 
@@ -319,8 +512,8 @@ The architecture of this repository is laid as follows, front-to-back:
 
 1. The `management-api-server/doc/openapi.json` documents the API.
 2. The server implements the HTTP verbs/endpoints under the `management-api-server/src/main/java/com/datastax/mgmtapi/resources` folder (e.g. `NodeOpsresources.java`).
-3. The server methods communicate back to the agents using `cqlService.executePreparedStatement()` calls which are routed as plaintext through a local socket. These calls return `ResultSet` objects, and to acess scalar values within these you are best to call `.one()` before checking for nulls and `.getObject(0)`. This java objectcan then be serialised into JSON for return to the client.
-4. The server communicates only with the `management-api-agent-common` subproject, which holds the unversioned `CassandraAPI` interface.
+3. The server methods communicate back to the agents using `cqlService.executePreparedStatement()` calls which are routed as plaintext through a local socket. These calls return `ResultSet` objects, and to access scalar values within these you are best to call `.one()` before checking for nulls and `.getObject(0)`. This java object can then be serialized into JSON for return to the client.
+4. The server communicates only with the `management-api-agent-common` sub-project, which holds the un-versioned `CassandraAPI` interface.
 5. The `management-api-agent-common/src/main/java/com/datastax/mgmtapi/NodeOpsProvider.java` routes commands through to specific versioned instances of `CassandraAPI` which is implemented in the version 3x/4x subprojects as `CassandraAPI4x`/`CassandraAPI3x`.
 
 Any change to add endpoints or features will need to make modifications in each of the above components to ensure that they propagate through.
@@ -337,17 +530,90 @@ git commit
 
 ## API Client Generation
 
-In addition to automatic OpenAPI document generation, a Golang client can be generated during the build by enabling the `clientgen` Maven profile. The client is built using the [OpenAPI Tools generator Maven plugin](https://github.com/OpenAPITools/openapi-generator/tree/master/modules/openapi-generator-maven-plugin) and can be used by Go projects to interact with the Management API. The client generation happens during the `process-classes` phase of the Maven build so that changes to the API implementation can be compiled into an OpenAPI document spec file [during the compile phase](#changes-to-api-endpoints) of the build. The client code is generated in the `target` directory under the [management-api-server](management-api-server) sub-module and should be located at
+In addition to automatic OpenAPI document generation, a Golang client or a Java client can be generated during the build (unfortunately, only 
+one of them can be generated at a time, but you can run the `process-classes` goal back-to-back to generate them both). The Java client generation
+is enabled by default (or can be explicitly enabled with the `java-clientgen` Maven profile). The Go client generation is disabled by default
+and can be enabled with the `go-clientgen` Maven profile. The clients are built using the
+[OpenAPI Tools generator Maven plugin](https://github.com/OpenAPITools/openapi-generator/tree/master/modules/openapi-generator-maven-plugin)
+and can be used by projects to interact with the Management API. The client generation happens during the `process-classes`
+phase of the Maven build so that changes to the API implementation can be compiled into an OpenAPI document spec file
+[during the compile phase](#changes-to-api-endpoints) of the build. The client code is generated in the `target` directory under
+the [management-api-server](management-api-server) sub-module and should be located at
 
 ```sh
 management-api-server/target/generated-sources/openapi
 ```
 
-To generate the client, run the following from the root of the project:
+To generate the Go client, run the following from the root of the project:
 
 ```sh
-mvn clean process-classes -Pclientgen
+mvn process-classes -P go-clientgen
 ```
+
+The Go client code will be generated in `management-api-server/target/generated-sources/openapi/go-client`
+
+To generate the Java client, run the following from the root of the project:
+
+```sh
+mvn process-classes -P java-clientgen
+```
+
+or simply:
+
+```sh
+mvn process-classes
+```
+
+The Java client code will be generated in `management-api-server/target/generated-sources/openapi/java-client`
+
+### Maven coordinates for the Java generated client
+
+This project also has a workflow_dispatch job that will publish the current `master` branch version of the Java
+generated client to the Datastax public Maven repository. To pull in this artifact in a Maven project, you will
+need to add the Datastax Artifactory repository to your Maven settings:
+
+```xml
+  <profiles>
+    <profile>
+      <id>datastax</id>
+      <activation>
+        <activeByDefault>true</activeByDefault>
+      </activation>
+      <repositories>
+        <repository>
+          <id>datastax-artifactory</id>
+          <name>DataStax Artifactory</name>
+          <releases>
+            <enabled>true</enabled>
+            <updatePolicy>never</updatePolicy>
+            <checksumPolicy>warn</checksumPolicy>
+          </releases>
+          <url>https://repo.datastax.com</url>
+          <layout>default</layout>
+        </repository>
+      </repositories>
+    </profile>
+  </profiles>
+```
+
+At the current time, the artifact for the Java client will have a version that contains the Git Hash of the commit it
+was built from. To add the artifact to your Maven project as a dependency, you will need something like this in your pom.xml:
+
+```xml
+<project>
+  <dependencies>
+    <dependency>
+      <groupId>io.k8ssandra</groupId>
+      <artifactId>datastax-mgmtapi-client-openapi</artifactId>
+      <version>0.1.0-9d71b60</version>
+    </dependency>
+  </dependnecies>
+</project>
+```
+
+where `9d71b60` is the hash of the release you want.
+
+Eventually, this artifact will be published into Maven Central and have a regular release version (i.e. 0.1.0).
 
 ## Published Docker images
 

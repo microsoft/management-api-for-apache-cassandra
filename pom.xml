@@ -8,36 +8,49 @@
 -->
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
-  <groupId>com.datastax</groupId>
+  <groupId>io.k8ssandra</groupId>
   <artifactId>datastax-mgmtapi</artifactId>
   <version>${revision}</version>
   <packaging>pom</packaging>
   <name>DataStax Management API for Apache Cassandra</name>
   <properties>
     <build.version.file>build_version.sh</build.version.file>
-    <revision>0.1.2-SNAPSHOT</revision>
-    <driver.version>4.15.0</driver.version>
-    <cassandra3.version>3.11.14</cassandra3.version>
-    <cassandra4.version>4.0.10</cassandra4.version>
-    <docker.java.version>3.2.13</docker.java.version>
+    <revision>0.1.0-SNAPSHOT</revision>
+    <driver.version>4.19.2</driver.version>
+    <cassandra4.version>4.0.20</cassandra4.version>
+    <docker.java.version>3.3.6</docker.java.version>
     <junit.version>4.13.2</junit.version>
-    <bytebuddy.version>1.12.19</bytebuddy.version>
+    <assertj.version>3.17.2</assertj.version>
+    <bytebuddy.version>1.14.6</bytebuddy.version>
     <build.version.file>build_version.sh</build.version.file>
-    <slf4j.version>1.7.25</slf4j.version>
-    <logback.version>1.2.9</logback.version>
-    <netty.version>4.1.78.Final</netty.version>
-    <mockito.version>3.5.13</mockito.version>
+    <slf4j.version>2.0.17</slf4j.version>
+    <logback.version>1.5.32</logback.version>
+    <netty.version>4.1.132.Final</netty.version>
+    <mockito.version>5.5.0</mockito.version>
     <prometheus.version>0.16.0</prometheus.version>
     <!-- This old version is used by Cassandra 4.x -->
     <dropwizard-metrics.version>3.1.5</dropwizard-metrics.version>
-    <jackson-dataformat.version>2.13.2</jackson-dataformat.version>
+    <jackson-dataformat.version>2.21.2</jackson-dataformat.version>
+    <!-- server and test dependnecies that are shared -->
+    <guava.version>33.5.0-jre</guava.version>
+    <airline.version>3.0.0</airline.version>
+    <jaxrs.version>2.2.45</jaxrs.version>
+    <resteasy.version>6.2.15.Final</resteasy.version>
+    <awaitility.version>4.3.0</awaitility.version>
+    <assertj.version>3.27.7</assertj.version>
+    <servelet.version>6.1.0</servelet.version>
+    <commons.io.version>2.21.0</commons.io.version>
     <coveo.format.version>2.9</coveo.format.version>
-    <xml.format.version>3.2.2</xml.format.version>
+    <xml.format.version>4.1.0</xml.format.version>
     <mycila.license.version>4.1</mycila.license.version>
-    <maven.compiler.version>3.10.1</maven.compiler.version>
-    <maven.test.version>3.0.0-M8</maven.test.version>
-    <maven.resource.version>3.3.0</maven.resource.version>
-    <maven.shade.version>3.4.1</maven.shade.version>
+    <maven.compiler.version>3.15.0</maven.compiler.version>
+    <maven.test.version>3.5.5</maven.test.version>
+    <maven.resource.version>3.4.0</maven.resource.version>
+    <maven.shade.version>3.6.1</maven.shade.version>
+    <maven.enforcer.version>3.6.2</maven.enforcer.version>
+    <maven.exec.version>3.6.3</maven.exec.version>
+    <maven.build.helper.version>3.6.1</maven.build.helper.version>
+    <maven.jar.version>3.5.0</maven.jar.version>
   </properties>
   <dependencies/>
   <profiles>
@@ -50,12 +63,14 @@
         <dseIncluded>false</dseIncluded>
       </properties>
       <modules>
+        <module>management-api-agent-shaded-libs</module>
         <module>management-api-common</module>
         <module>management-api-agent-common</module>
-        <module>management-api-agent-3.x</module>
         <module>management-api-agent-4.x</module>
         <module>management-api-agent-4.1.x</module>
+        <module>management-api-agent-5.0.x</module>
         <module>management-api-server</module>
+        <module>management-api-test</module>
       </modules>
     </profile>
     <profile>
@@ -67,13 +82,16 @@
         <dseIncluded>true</dseIncluded>
       </properties>
       <modules>
+        <module>management-api-agent-shaded-libs</module>
         <module>management-api-common</module>
         <module>management-api-agent-common</module>
-        <module>management-api-agent-3.x</module>
         <module>management-api-agent-4.x</module>
         <module>management-api-agent-4.1.x</module>
+        <module>management-api-agent-5.0.x</module>
         <module>management-api-agent-dse-6.8</module>
+        <module>management-api-agent-dse-6.9</module>
         <module>management-api-server</module>
+        <module>management-api-test</module>
       </modules>
     </profile>
     <profile>
@@ -85,6 +103,48 @@
         <dseIncluded>false</dseIncluded>
       </properties>
       <modules>
+        <module>management-api-agent-shaded-libs</module>
+        <module>management-api-common</module>
+        <module>management-api-agent-common</module>
+        <module>management-api-agent-4.x</module>
+        <module>management-api-agent-4.1.x</module>
+        <module>management-api-agent-5.0.x</module>
+        <module>management-api-agent-6.0.x</module>
+        <module>management-api-server</module>
+        <module>management-api-test</module>
+      </modules>
+    </profile>
+    <profile>
+      <id>hcd</id>
+      <activation>
+        <activeByDefault>false</activeByDefault>
+      </activation>
+      <properties>
+        <dseIncluded>true</dseIncluded>
+      </properties>
+      <modules>
+        <module>management-api-agent-shaded-libs</module>
+        <module>management-api-common</module>
+        <module>management-api-agent-common</module>
+        <module>management-api-agent-4.x</module>
+        <module>management-api-agent-4.1.x</module>
+        <module>management-api-agent-5.0.x</module>
+        <module>management-api-agent-hcd-cc4</module>
+        <module>management-api-agent-hcd-cc5</module>
+        <module>management-api-server</module>
+        <module>management-api-test</module>
+      </modules>
+    </profile>
+    <profile>
+      <id>311</id>
+      <activation>
+        <activeByDefault>false</activeByDefault>
+      </activation>
+      <properties>
+        <dseIncluded>false</dseIncluded>
+      </properties>
+      <modules>
+        <module>management-api-agent-shaded-libs</module>
         <module>management-api-common</module>
         <module>management-api-agent-common</module>
         <module>management-api-agent-3.x</module>
@@ -92,6 +152,7 @@
         <module>management-api-agent-4.1.x</module>
         <module>management-api-agent-5.0.x</module>
         <module>management-api-server</module>
+        <module>management-api-test</module>
       </modules>
     </profile>
   </profiles>
@@ -117,6 +178,11 @@
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-surefire-plugin</artifactId>
           <version>${maven.test.version}</version>
+          <configuration>
+            <systemPropertyVariables>
+              <dockerFileRoot>${basedir}</dockerFileRoot>
+            </systemPropertyVariables>
+          </configuration>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
@@ -137,11 +203,44 @@
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-resources-plugin</artifactId>
           <version>${maven.resource.version}</version>
+          <configuration>
+            <outputDirectory/>
+            <encoding>UTF-8</encoding>
+          </configuration>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-shade-plugin</artifactId>
           <version>${maven.shade.version}</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-enforcer-plugin</artifactId>
+          <version>${maven.enforcer.version}</version>
+        </plugin>
+        <plugin>
+          <groupId>org.codehaus.mojo</groupId>
+          <artifactId>build-helper-maven-plugin</artifactId>
+          <version>${maven.build.helper.version}</version>
+          <executions>
+            <execution>
+              <phase>initialize</phase>
+              <id>parse-version</id>
+              <goals>
+                <goal>parse-version</goal>
+              </goals>
+            </execution>
+          </executions>
+        </plugin>
+        <plugin>
+          <groupId>org.codehaus.mojo</groupId>
+          <artifactId>exec-maven-plugin</artifactId>
+          <version>${maven.exec.version}</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-jar-plugin</artifactId>
+          <version>${maven.jar.version}</version>
         </plugin>
       </plugins>
     </pluginManagement>
@@ -210,6 +309,23 @@ Please see the included license file for details.]]></inlineHeader>
             <phase>initialize</phase>
             <goals>
               <goal>check</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>enforce</id>
+            <configuration>
+              <rules>
+                <dependencyConvergence/>
+              </rules>
+            </configuration>
+            <goals>
+              <goal>enforce</goal>
             </goals>
           </execution>
         </executions>
